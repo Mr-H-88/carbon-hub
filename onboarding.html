@@ -597,6 +597,24 @@ svg { display: block; }
 .guide-step-tag-pending { font-size: 11px; color: var(--c-text-3); }
 .guide-step-tag-optional { font-size: 11px; color: var(--c-text-3); }
 
+/* Guide step clickable (onboarding guide only, scoped via [data-key]) */
+.guide-step-item[data-key] { cursor: pointer; }
+.guide-step-item[data-key]:hover {
+  border-color: var(--c-primary);
+  background: rgba(15, 186, 130, 0.08);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(15, 186, 130, 0.12);
+}
+.guide-step-item[data-key]:active { transform: translateY(0); }
+.guide-step-arrow {
+  display: flex; align-items: center; gap: 4px;
+  color: var(--c-text-3); font-size: 11px; font-weight: 500;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.guide-step-arrow svg { width: 14px; height: 14px; }
+.guide-step-item[data-key]:hover .guide-step-arrow { color: var(--c-primary); }
+
 /* ========== Module Pages ========== */
 .module-page { display: flex; flex-direction: column; gap: 20px; }
 
@@ -1134,7 +1152,7 @@ svg { display: block; }
           <div class="welcome-banner-title">欢迎使用碳智汇！完成以下 4 步即可开始使用</div>
           <div class="welcome-banner-desc">本系统已根据您填写的企业信息预置了基础模板，建议按顺序完成初始化。</div>
         </div>
-        <button class="welcome-banner-btn" onclick="showToast('即将跳转到原料录入页面…')">
+        <button class="welcome-banner-btn" onclick="jumpToModule('materials', '已跳转到原料管理，请录入第一批原料')">
           <span>开始录入原料</span>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 8h10M7 4l4 4-4 4"/>
@@ -1239,7 +1257,7 @@ svg { display: block; }
               <div class="card-title">热解运行状态</div>
               <div class="card-sub">批次运行监控</div>
             </div>
-            <span class="reactor-more" onclick="showToast('暂无运行批次')">查看全部</span>
+            <span class="reactor-more" onclick="jumpToModule('pyrolysis', '暂无运行批次，已跳转到热解制备')">查看全部</span>
           </div>
           <div class="reactor-empty">
             <div class="reactor-empty-icon">
@@ -1251,7 +1269,7 @@ svg { display: block; }
             </div>
             <div class="reactor-empty-text">尚未启动热解生产</div>
           </div>
-          <button class="reactor-btn" onclick="showToast('请先完成初始化向导第 2 步')">
+          <button class="reactor-btn" onclick="gotoWizardStep(2)">
             <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M7 3v8M3 7h8"/>
             </svg>
@@ -1289,45 +1307,49 @@ svg { display: block; }
             <div class="guide-sub">推荐按顺序完成，约需 15 分钟</div>
           </div>
           <div class="guide-step-list">
-            <div class="guide-step-item active">
+            <div class="guide-step-item active" data-key="materials" onclick="gotoGuideStep('materials')" title="点击前往原料管理">
               <div class="guide-step-badge">1</div>
               <div class="guide-step-content">
                 <div class="guide-step-row">
                   <span class="guide-step-title">录入第一批原料</span>
                   <span class="guide-step-tag-active">进行中</span>
                 </div>
-                <div class="guide-step-desc">添加供应商和入库批次</div>
+                <div class="guide-step-desc">前往【原料管理】添加供应商，并录入首批入库原料</div>
               </div>
+              <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
             </div>
-            <div class="guide-step-item">
+            <div class="guide-step-item" data-key="pyrolysis" onclick="gotoGuideStep('pyrolysis')" title="点击前往热解制备">
               <div class="guide-step-badge">2</div>
               <div class="guide-step-content">
                 <div class="guide-step-row">
                   <span class="guide-step-title">启动热解批次</span>
                   <span class="guide-step-tag-pending">待开始</span>
                 </div>
-                <div class="guide-step-desc">配置热解炉参数，开始第一批生产</div>
+                <div class="guide-step-desc">前往【热解制备】配置热解炉，并启动第一个批次</div>
               </div>
+              <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
             </div>
-            <div class="guide-step-item">
+            <div class="guide-step-item" data-key="analysis" onclick="gotoGuideStep('analysis')" title="点击前往碳质分析">
               <div class="guide-step-badge">3</div>
               <div class="guide-step-content">
                 <div class="guide-step-row">
                   <span class="guide-step-title">录入碳核算数据</span>
                   <span class="guide-step-tag-pending">待开始</span>
                 </div>
-                <div class="guide-step-desc">上传批次质检结果，自动核算碳汇</div>
+                <div class="guide-step-desc">前往【碳质分析】上传质检报告，系统自动核算碳汇</div>
               </div>
+              <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
             </div>
-            <div class="guide-step-item">
+            <div class="guide-step-item" data-key="trading" onclick="gotoGuideStep('trading')" title="点击前往碳交易市场">
               <div class="guide-step-badge">4</div>
               <div class="guide-step-content">
                 <div class="guide-step-row">
                   <span class="guide-step-title">关联碳交易账户</span>
                   <span class="guide-step-tag-optional">可选</span>
                 </div>
-                <div class="guide-step-desc">对接 CCER 平台，记录交易流水</div>
+                <div class="guide-step-desc">前往【碳交易市场】关联 CCER 账户并查看交易行情</div>
               </div>
+              <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
             </div>
           </div>
         </div>
@@ -1693,7 +1715,30 @@ function switchModule(key) {
   }
 }
 
-function moduleEmpty(iconColor, iconSvg, title, desc, btnText, btnIcon, toastMsg, infoCards) {
+/* ========== Onboarding Guide / Empty-state Jump Helpers ========== */
+// 新手引导步骤点击：跳转到对应业务模块
+function gotoGuideStep(key) {
+  const config = moduleConfig[key];
+  const name = config ? config.title : key;
+  switchModule(key);
+  showToast('已跳转到【' + name + '】，请完成该步骤');
+}
+
+// 跳转到初始化向导指定步骤（goToScreen('setup') + 定位到对应 step）
+function gotoWizardStep(stepNum) {
+  goToScreen('setup');
+  currentStep = stepNum;
+  renderSetupStep(stepNum);
+  showToast('已跳转到初始化向导第 ' + stepNum + ' 步，请完成该步配置');
+}
+
+// 跳转到指定模块并给出提示（用于空状态按钮的前置依赖引导）
+function jumpToModule(key, msg) {
+  switchModule(key);
+  if (msg) showToast(msg);
+}
+
+function moduleEmpty(iconColor, iconSvg, title, desc, btnText, btnIcon, toastMsg, infoCards, jumpAction) {
   let infoHtml = '<div class="module-info-grid">';
   infoCards.forEach(c => {
     infoHtml += '<div class="module-info-card">'
@@ -1704,12 +1749,15 @@ function moduleEmpty(iconColor, iconSvg, title, desc, btnText, btnIcon, toastMsg
       + '</div>';
   });
   infoHtml += '</div>';
+  // jumpAction: real navigation handler (e.g. gotoWizardStep(2) / jumpToModule('pyrolysis', '...'))
+  // Fallback to toast only when no jump action is provided.
+  const btnOnClick = jumpAction ? jumpAction : 'showToast(\'' + toastMsg + '\')';
   return '<div class="module-empty-state">'
     + '<div class="module-empty-card">'
     + '<div class="module-empty-icon ' + iconColor + '">' + iconSvg + '</div>'
     + '<div class="module-empty-title">' + title + '</div>'
     + '<div class="module-empty-desc">' + desc + '</div>'
-    + '<button class="module-empty-btn" onclick="showToast(\'' + toastMsg + '\')">' + btnIcon + '<span>' + btnText + '</span></button>'
+    + '<button class="module-empty-btn" onclick="' + btnOnClick + '">' + btnIcon + '<span>' + btnText + '</span></button>'
     + '</div>'
     + infoHtml
     + '</div>';
@@ -1726,7 +1774,8 @@ function getModuleContent(key) {
       '录入第一批原料信息，系统将自动跟踪库存变化、预警状态和供应商管理',
       '添加第一批原料', plus, '添加原料 — 请先完成初始化向导第 1 步',
       [{ title: '原料类型', desc: '支持秸秆类、畜禽粪便、林业废弃物、餐厨垃圾等多种生物质原料分类管理' },
-       { title: '核心功能', desc: '入库管理、库存预警、供应商档案、批次追溯全流程覆盖' }]),
+       { title: '核心功能', desc: '入库管理、库存预警、供应商档案、批次追溯全流程覆盖' }],
+      'gotoWizardStep(1)'),
 
     pyrolysis: moduleEmpty('cyan',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 4L8 10v16l10 6 10-6V10L18 4z"/><path d="M18 10v14M12 14l6 3 6-3"/></svg>',
@@ -1734,7 +1783,8 @@ function getModuleContent(key) {
       '配置热解炉参数并启动第一个热解批次，系统将自动记录温度、产率等关键参数',
       '启动第一个热解批次', plus, '启动批次 — 请先在初始化向导第 2 步配置热解炉',
       [{ title: '批次管理', desc: '创建批次、跟踪温度产率、完成后自动结算产率和碳转化率' },
-       { title: '前置条件', desc: '需先在初始化向导第 2 步中配置热解炉' }]),
+       { title: '前置条件', desc: '需先在初始化向导第 2 步中配置热解炉' }],
+      'gotoWizardStep(2)'),
 
     analysis: moduleEmpty('orange',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h8v6l6 18H8l6-18V4z"/><path d="M14 16h8"/></svg>',
@@ -1742,7 +1792,8 @@ function getModuleContent(key) {
       '上传批次质检报告，系统将自动分析碳含量、灰分等指标并标记达标状态',
       '上传质检报告', arrow, '上传报告 — 需先完成至少一个热解批次',
       [{ title: '分析指标', desc: '碳含量、灰分、挥发分、热值、固定碳等多维度自动分析' },
-       { title: '达标判定', desc: '自动对照国标方法学，标记非达标样品并生成整改建议' }]),
+       { title: '达标判定', desc: '自动对照国标方法学，标记非达标样品并生成整改建议' }],
+      'jumpToModule(\'pyrolysis\', \'请先在【热解制备】完成至少一个批次，再回来上传质检报告\')'),
 
     pollution: moduleEmpty('purple',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 4L6 10v8c0 6 5 10 12 14 7-4 12-8 12-14v-8L18 4z"/><path d="M14 18l3 3 6-6"/></svg>',
@@ -1750,7 +1801,8 @@ function getModuleContent(key) {
       '配置尾气处理与废水治理监测，系统将跟踪排放指标是否达标',
       '配置监测方案', plus, '配置监测方案 — 请先完成企业信息配置',
       [{ title: '监测范围', desc: '尾气排放（SO₂、NOx、粉尘）、废水指标（COD、氨氮）、噪音监测' },
-       { title: '合规提醒', desc: '指标超标自动预警，生成合规报告供环保检查使用' }]),
+       { title: '合规提醒', desc: '指标超标自动预警，生成合规报告供环保检查使用' }],
+      'gotoWizardStep(1)'),
 
     carbonsink: moduleEmpty('orange',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="24" height="24" rx="3"/><path d="M10 14h16M10 19h10"/><circle cx="22" cy="19" r="2"/></svg>',
@@ -1758,7 +1810,8 @@ function getModuleContent(key) {
       '录入热解批次和质检数据后，系统将自动按方法学核算碳汇量并生成报告',
       '录入核算数据', arrow, '录入数据 — 需先完成热解批次和质检',
       [{ title: '核算方法', desc: '基于 IPCC 方法学，结合生物质碳含量和热解参数自动计算减排量' },
-       { title: '报告输出', desc: '支持导出 PDF 核算报告，满足 CCER 项目申报要求' }]),
+       { title: '报告输出', desc: '支持导出 PDF 核算报告，满足 CCER 项目申报要求' }],
+      'jumpToModule(\'pyrolysis\', \'请先在【热解制备】完成批次和质检，系统将自动核算碳汇\')'),
 
     trading: moduleEmpty('purple',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="12"/><path d="M18 10v16M14 14h6a2 2 0 010 4h-4a2 2 0 010 4h6"/></svg>',
@@ -1766,7 +1819,8 @@ function getModuleContent(key) {
       '关联 CCER 交易账户后，可在此查看碳配额行情、发起交易并记录流水',
       '关联交易账户', arrow, '关联账户 — 请先完成碳汇核算',
       [{ title: '市场行情', desc: '实时展示 CCER 碳价格走势、成交量、市场深度等行情数据' },
-       { title: '交易管理', desc: '支持挂牌交易、协议转让，自动记录交易流水和持仓变化' }]),
+       { title: '交易管理', desc: '支持挂牌交易、协议转让，自动记录交易流水和持仓变化' }],
+      'jumpToModule(\'carbonsink\', \'请先在【碳汇核算】完成核算后，再回来关联交易账户\')'),
 
     ai: moduleEmpty('green',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="20" height="20" rx="4"/><circle cx="18" cy="18" r="4"/><path d="M18 4v4M18 28v4M4 18h4M28 18h4"/></svg>',
@@ -1774,7 +1828,8 @@ function getModuleContent(key) {
       '积累一定生产数据后，AI 将自动分析工艺参数并提供产率优化和能耗降低建议',
       '启用AI分析', arrow, '启用分析 — 需先积累至少 3 个批次的生产数据',
       [{ title: '分析维度', desc: '原料配比优化、热解温度调节、产率提升、能耗降低多维度分析' },
-       { title: '智能推荐', desc: '每周自动生成优化报告，推送可执行的改进建议和预期收益' }])
+       { title: '智能推荐', desc: '每周自动生成优化报告，推送可执行的改进建议和预期收益' }],
+      'jumpToModule(\'pyrolysis\', \'请先在【热解制备】积累至少 3 个批次的生产数据，再启用 AI 分析\')')
   };
   return templates[key] || '';
 }
