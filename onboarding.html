@@ -1714,9 +1714,8 @@ function renderSetupStep(stepNum) {
 
     if (field.type === 'input') {
       const focusedClass = field.focused ? ' focused' : '';
-      const savedVal = (window.setupData && window.setupData[field.label]) || field.value || '';
       html += `<div class="form-input${focusedClass}">`;
-      html += `<input type="text" class="form-input-field" data-label="${field.label}" placeholder="${field.placeholder || ''}" value="${savedVal}">`;
+      html += `<input type="text" placeholder="${field.placeholder || ''}" value="${field.value || ''}">`;
       html += '</div>';
     } else if (field.type === 'select') {
       // 可输入下拉（combobox）：可直接输入任意内容，也可点击展开选择预设选项
@@ -1789,11 +1788,8 @@ function prevStep() {
   }
 }
 function finishSetup() {
-  showToast('配置完成！正在生成数据看板…');
-  setTimeout(() => {
-    goToScreen('dashboard');
-    enterDemoMode('数据预览');
-  }, 1000);
+  showToast('配置完成！正在进入系统…');
+  setTimeout(() => goToScreen('dashboard'), 1000);
 }
 
 function toggleChip(el) {
@@ -1857,18 +1853,16 @@ document.addEventListener('click', function(e) {
 
 // 输入自由内容时实时保存（支持任意填写）
 document.addEventListener('input', function(e) {
-  var inp = e.target.closest('.form-select-input') || e.target.closest('.form-input-field');
+  var inp = e.target.closest('.form-select-input');
   if (inp) {
-    var label = inp.getAttribute('data-label');
+    var wrap = inp.closest('.form-select');
+    var label = wrap.getAttribute('data-label');
     window.setupData[label] = inp.value;
-    if (inp.classList.contains('form-select-input')) {
-      var wrap = inp.closest('.form-select');
-      inp.style.color = 'var(--c-text-1)';
-      // 输入时若匹配某个预设选项则高亮它
-      wrap.querySelectorAll('.select-option').forEach(function(o) {
-        o.classList.toggle('selected', o.textContent.trim() === inp.value);
-      });
-    }
+    inp.style.color = 'var(--c-text-1)';
+    // 输入时若匹配某个预设选项则高亮它
+    wrap.querySelectorAll('.select-option').forEach(function(o) {
+      o.classList.toggle('selected', o.textContent.trim() === inp.value);
+    });
   }
 });
 /* ========== End Select Dropdown ========== */
@@ -1949,10 +1943,10 @@ const moduleConfig = {
 let demoMode = false;
 let _savedOverviewHTML = '';
 
-function enterDemoMode(badgeText) {
+function enterDemoMode() {
   demoMode = true;
   _savedOverviewHTML = document.getElementById('module-overview').innerHTML;
-  showDemoBadge(badgeText || '演示模式');
+  showDemoBadge();
   goToScreen('dashboard');
   switchModule('overview');
 }
@@ -1972,9 +1966,9 @@ function exitDemoMode() {
   goToScreen('welcome');
 }
 
-function showDemoBadge(text) {
+function showDemoBadge() {
   const slot = document.getElementById('demo-badge-slot');
-  if (slot) slot.innerHTML = '<div class="demo-badge-wrap"><span class="demo-badge">' + text + '</span><button class="demo-exit-btn" onclick="exitDemoMode()"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l8 8M11 3l-8 8"/></svg>退出</button></div>';
+  if (slot) slot.innerHTML = '<div class="demo-badge-wrap"><span class="demo-badge">演示模式</span><button class="demo-exit-btn" onclick="exitDemoMode()"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l8 8M11 3l-8 8"/></svg>退出</button></div>';
 }
 function hideDemoBadge() {
   const slot = document.getElementById('demo-badge-slot');
@@ -2360,7 +2354,7 @@ function getDemoOverview(range) {
 
   // KPI row
   var kpiHtml = '<div class="kpi-row">' + d.kpis.map(function(k) {
-    return '<div class="kpi-card"><div class="kpi-head"><span class="kpi-label">' + k.label + '</span><div class="kpi-icon ' + k.c + '">' + k.ic + '</div></div><div class="kpi-value-row"><span class="kpi-value">' + k.v + '</span>' + (k.u ? '<span class="kpi-unit">' + k.u + '</span>' : '') + '</div><div><span class="kpi-trend ' + k.trendDir + '">' + _up + k.trend + '</span><span class="kpi-sub">  ' + k.sub + '</span></div></div>';
+    return '<div class="kpi-card"><div class="kpi-head"><span class="kpi-label">' + k.label + '</span><div class="kpi-icon ' + k.c + '">' + k.ic + '</div></div><div class="kpi-value-row"><span class="kpi-value">' + k.v + '</span><span class="kpi-unit">' + k.u + '</span></div><div><span class="kpi-trend ' + k.trendDir + '">' + _up + k.trend + '</span><span class="kpi-sub">  ' + k.sub + '</span></div></div>';
   }).join('') + '</div>';
 
   // Combo chart: bars (per-period reduction) + cumulative line
@@ -2415,10 +2409,7 @@ function getDemoOverview(range) {
   }).join('') + '</div></div>';
 
   // Summary banner
-  var companyName = (window.setupData && window.setupData['企业名称']) || '';
-  var bannerTitle = '系统运行正常';
-  if (companyName) bannerTitle = companyName + ' · 系统运行正常';
-  var bannerHtml = '<div class="demo-banner"><div class="demo-banner-left"><div class="demo-banner-title">' + _ic.check + bannerTitle + '</div><div class="demo-banner-desc">' + d.bannerDesc + '</div></div><div class="demo-banner-stats">' + d.bannerStats.map(function(s) {
+  var bannerHtml = '<div class="demo-banner"><div class="demo-banner-left"><div class="demo-banner-title">' + _ic.check + '系统运行正常</div><div class="demo-banner-desc">' + d.bannerDesc + '</div></div><div class="demo-banner-stats">' + d.bannerStats.map(function(s) {
     return '<div class="demo-banner-stat"><div class="demo-banner-stat-value">' + s.v + (s.u ? '<span style="font-size:13px;font-weight:500;color:var(--c-text-3)">' + s.u + '</span>' : '') + '</div><div class="demo-banner-stat-label">' + s.l + '</div></div>';
   }).join('') + '</div></div>';
 
