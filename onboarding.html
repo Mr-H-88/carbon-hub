@@ -797,6 +797,44 @@ svg { display: block; }
 .price-trend-bar { flex:1; background:rgba(15,186,130,0.15); border-radius:2px 2px 0 0; min-height:4px; }
 .price-trend-bar.peak { background:var(--c-primary); }
 
+/* Clickable stat card */
+.stat-card-clickable { cursor:pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+.stat-card-clickable:hover { border-color: var(--c-primary); box-shadow: var(--shadow-card-hover); }
+
+/* Non-pass detail panel */
+.nonpass-panel { display:none; }
+.nonpass-panel.open { display:block; animation: panelIn 0.28s ease; }
+@keyframes panelIn { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform: translateY(0); } }
+.nonpass-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--c-border); }
+.nonpass-title { font-size:14px; font-weight:700; color:var(--c-text-1); display:flex; align-items:center; gap:8px; }
+.nonpass-title svg { width:16px; height:16px; color:var(--c-red); flex-shrink:0; }
+.nonpass-close { width:24px; height:24px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--c-text-3); transition: all 0.15s; }
+.nonpass-close:hover { background:var(--c-gray-bg); color:var(--c-text-1); }
+.nonpass-close svg { width:14px; height:14px; }
+
+/* Slim chart card (module pages, between stats and table) */
+.chart-card.chart-slim { min-height:0; }
+.chart-card.chart-slim .chart-area { min-height:0; }
+
+/* Horizontal bar list */
+.hbar-list { display:flex; flex-direction:column; gap:14px; padding-top:4px; }
+.hbar-item { display:flex; flex-direction:column; gap:6px; }
+.hbar-head { display:flex; align-items:center; justify-content:space-between; font-size:12px; }
+.hbar-name { color:var(--c-text-2); font-weight:500; }
+.hbar-val { color:var(--c-text-1); font-weight:600; font-variant-numeric:tabular-nums; }
+.hbar-track { height:8px; border-radius:4px; background:var(--c-gray-bg); overflow:hidden; }
+.hbar-fill { height:100%; border-radius:4px; background:linear-gradient(90deg, var(--c-primary), rgba(15,186,130,0.45)); }
+.hbar-fill.warn { background:linear-gradient(90deg, var(--c-orange), rgba(245,158,10,0.45)); }
+
+/* Donut chart (analysis) */
+.donut-wrap { display:flex; align-items:center; gap:28px; padding-top:8px; }
+.donut-svg { width:148px; height:148px; flex-shrink:0; }
+.donut-legend { display:flex; flex-direction:column; gap:12px; }
+.donut-legend-item { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--c-text-2); }
+.donut-legend-dot { width:10px; height:10px; border-radius:3px; }
+.donut-legend-item strong { color:var(--c-text-1); font-weight:700; font-size:13px; }
+.donut-legend-item .pct { color:var(--c-text-3); }
+
 /* ========== Responsive ========== */
 @media (max-width: 1200px) {
   .kpi-row { flex-wrap: wrap; }
@@ -1507,13 +1545,36 @@ function toggleChip(el) {
 }
 
 /* ========== Time Switcher ========== */
+var currentOverviewRange = '7d';
 document.addEventListener('click', function(e) {
   const item = e.target.closest('.time-switcher-item');
   if (item) {
     item.parentElement.querySelectorAll('.time-switcher-item').forEach(i => i.classList.remove('active'));
     item.classList.add('active');
+    var range = item.getAttribute('data-range');
+    if (demoMode && range) {
+      currentOverviewRange = range;
+      var overviewEl = document.getElementById('module-overview');
+      if (overviewEl && overviewEl.style.display !== 'none') {
+        overviewEl.innerHTML = getDemoOverview(range);
+      }
+    }
   }
 });
+
+/* ========== Non-pass Detail Panel ========== */
+document.addEventListener('click', function(e) {
+  var card = e.target.closest('.stat-card[data-key]');
+  if (card && card.getAttribute('data-key') === 'nonpass') {
+    toggleNonpassPanel();
+  }
+});
+function toggleNonpassPanel(force) {
+  var panel = document.getElementById('nonpass-panel');
+  if (!panel) return;
+  var next = (typeof force === 'boolean') ? force : !panel.classList.contains('open');
+  panel.classList.toggle('open', next);
+}
 
 /* ========== Toast ========== */
 function showToast(message) {
@@ -1724,7 +1785,7 @@ const _up = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-w
 
 function _statRow(stats) {
   return '<div class="stat-row">' + stats.map(function(s) {
-    return '<div class="stat-card"><div class="stat-card-head"><span class="stat-card-label">' + s.label + '</span><div class="stat-card-icon ' + (s.c||'green') + '">' + (s.ic||'') + '</div></div><div><span class="stat-card-value">' + s.v + '</span>' + (s.u?'<span class="stat-card-unit">' + s.u + '</span>':'') + '</div>' + (s.s?'<div class="stat-card-sub">' + s.s + '</div>':'') + '</div>';
+    return '<div class="stat-card' + (s.clickable?' stat-card-clickable':'') + '"' + (s.key?' data-key="' + s.key + '"':'') + '><div class="stat-card-head"><span class="stat-card-label">' + s.label + '</span><div class="stat-card-icon ' + (s.c||'green') + '">' + (s.ic||'') + '</div></div><div><span class="stat-card-value">' + s.v + '</span>' + (s.u?'<span class="stat-card-unit">' + s.u + '</span>':'') + '</div>' + (s.s?'<div class="stat-card-sub">' + s.s + '</div>':'') + '</div>';
   }).join('') + '</div>';
 }
 
@@ -1740,27 +1801,128 @@ function _table(title, sub, headers, rows) {
   return h + '</tbody></table></div>';
 }
 
-function getDemoOverview() {
-  var kpis = [
-    {label:'原料库存总量', ic:_ic.box, c:'green', v:'1,248', u:'吨', trend:'+8.2%', trendDir:'up', sub:'较上周'},
-    {label:'生物炭产量', ic:_ic.fire, c:'cyan', v:'386', u:'吨', trend:'+12.5%', trendDir:'up', sub:'较上月'},
-    {label:'累计碳汇核算', ic:_ic.leaf, c:'orange', v:'1,052', u:'tCO₂e', trend:'+15.3%', trendDir:'up', sub:'较上月'},
-    {label:'CCER 收益', ic:_ic.coin, c:'purple', v:'¥68,200', trend:'+22.1%', trendDir:'up', sub:'较上月'}
-  ];
-  var kpiHtml = '<div class="kpi-row">' + kpis.map(function(k) {
+function _overviewRangeData(range) {
+  if (range === 'today') {
+    return {
+      bannerDesc: '今日已完成 3 个热解批次，原料库存充足，设备运行正常',
+      bannerStats: [
+        {v:'18.5', u:' 吨', l:'今日产量'},
+        {v:'52', u:' tCO₂e', l:'今日减排'},
+        {v:'2/3', u:'', l:'设备运行'}
+      ],
+      kpis: [
+        {label:'原料库存总量', ic:_ic.box, c:'green', v:'1,248', u:'吨', trend:'+3.1%', trendDir:'up', sub:'今日入库 12.5 吨'},
+        {label:'今日生物炭产量', ic:_ic.fire, c:'cyan', v:'18.5', u:'吨', trend:'+4.2%', trendDir:'up', sub:'已完成 3 个批次'},
+        {label:'今日碳汇核算', ic:_ic.leaf, c:'orange', v:'52', u:'tCO₂e', trend:'+2.8%', trendDir:'up', sub:'3 个批次减排合计'},
+        {label:'今日 CCER 收益', ic:_ic.coin, c:'purple', v:'¥3,250', trend:'+5.0%', trendDir:'up', sub:'成交 50 tCO₂e'}
+      ],
+      chartSub: '碳汇核算小时级数据（tCO₂e）',
+      legendDot: '小时减排量（tCO₂e）',
+      legend: '今日累计：52 tCO₂e',
+      bars: [
+        {v:5, l:'08时'},{v:6, l:'10时'},{v:7, l:'12时'},{v:6, l:'14时'},
+        {v:8, l:'16时'},{v:7, l:'18时'},{v:7, l:'20时'},{v:6, l:'22时'}
+      ],
+      events: [
+        {dot:'green', tag:'green', tagText:'热解', event:'热解批次 #B0811-03 完成，产率 42.3%', time:'14:32'},
+        {dot:'cyan', tag:'cyan', tagText:'入库', event:'原料入库 · 玉米秸秆 12.5 吨', time:'13:15'},
+        {dot:'orange', tag:'orange', tagText:'质检', event:'质检报告 QR-0810-02 已上传，碳含量 78.2%', time:'11:08'},
+        {dot:'purple', tag:'purple', tagText:'交易', event:'CCER 交易成交 50 tCO₂e @ ¥65/t', time:'09:45'}
+      ],
+      tlBadge: '今日 4 条'
+    };
+  }
+  if (range === '30d') {
+    return {
+      bannerDesc: '本月已完成 48 个热解批次，近 30 天累计减排 872 tCO₂e',
+      bannerStats: [
+        {v:'386', u:' 吨', l:'本月产量'},
+        {v:'872', u:' tCO₂e', l:'近 30 天减排'},
+        {v:'48', u:' 个', l:'本月批次'}
+      ],
+      kpis: [
+        {label:'原料库存总量', ic:_ic.box, c:'green', v:'1,248', u:'吨', trend:'+8.2%', trendDir:'up', sub:'本月入库 186 吨'},
+        {label:'本月生物炭产量', ic:_ic.fire, c:'cyan', v:'386', u:'吨', trend:'+12.5%', trendDir:'up', sub:'较上月'},
+        {label:'累计碳汇核算', ic:_ic.leaf, c:'orange', v:'1,052', u:'tCO₂e', trend:'+15.3%', trendDir:'up', sub:'其中近 30 天 872'},
+        {label:'累计 CCER 收益', ic:_ic.coin, c:'purple', v:'¥68,200', trend:'+22.1%', trendDir:'up', sub:'平均成交价 ¥64.8'}
+      ],
+      chartSub: '碳汇核算周度数据（tCO₂e）',
+      legendDot: '周减排量（tCO₂e）',
+      legend: '30 天累计：872 tCO₂e',
+      bars: [
+        {v:152, l:'7/15'},{v:168, l:'7/22'},{v:181, l:'7/29'},{v:175, l:'8/5'},{v:196, l:'8/11'}
+      ],
+      events: [
+        {dot:'green', tag:'green', tagText:'热解', event:'热解批次 #B0811-03 完成，产率 42.3%', time:'8/11 14:32'},
+        {dot:'orange', tag:'orange', tagText:'质检', event:'质检报告 QR-0810-02 已上传，碳含量 78.2%', time:'8/10 11:20'},
+        {dot:'cyan', tag:'cyan', tagText:'入库', event:'原料入库 · 牛粪 18 吨', time:'8/09 15:40'},
+        {dot:'gray', tag:'green', tagText:'设备', event:'3# 反应釜 完成检修，恢复待机', time:'8/07 16:30'},
+        {dot:'purple', tag:'purple', tagText:'交易', event:'CCER 买入 100 tCO₂e @ ¥62/t', time:'8/05 10:15'},
+        {dot:'green', tag:'green', tagText:'热解', event:'热解批次 #B0801-01 完成，产率 41.0%', time:'8/01 09:00'},
+        {dot:'orange', tag:'orange', tagText:'质检', event:'质检报告 QR-0728-02 已上传，碳含量 76.0%', time:'7/28 16:00'},
+        {dot:'cyan', tag:'cyan', tagText:'入库', event:'原料入库 · 锯木屑 25 吨', time:'7/22 13:30'},
+        {dot:'purple', tag:'purple', tagText:'交易', event:'CCER 卖出 80 tCO₂e @ ¥59/t', time:'7/18 10:45'}
+      ],
+      tlBadge: '30 天 9 条'
+    };
+  }
+  // default: 7d
+  return {
+    bannerDesc: '本周已完成 24 个热解批次，原料库存充足，设备运行正常',
+    bannerStats: [
+      {v:'128', u:' 吨', l:'本周产量'},
+      {v:'355', u:' tCO₂e', l:'本周减排'},
+      {v:'2/3', u:'', l:'设备运行'}
+    ],
+    kpis: [
+      {label:'原料库存总量', ic:_ic.box, c:'green', v:'1,248', u:'吨', trend:'+5.6%', trendDir:'up', sub:'本周入库 96 吨'},
+      {label:'本周生物炭产量', ic:_ic.fire, c:'cyan', v:'128', u:'吨', trend:'+9.8%', trendDir:'up', sub:'7 天累计'},
+      {label:'本周碳汇核算', ic:_ic.leaf, c:'orange', v:'355', u:'tCO₂e', trend:'+11.2%', trendDir:'up', sub:'7 天累计'},
+      {label:'本周 CCER 收益', ic:_ic.coin, c:'purple', v:'¥15,800', trend:'+8.4%', trendDir:'up', sub:'本周 3 笔成交'}
+    ],
+    chartSub: '碳汇核算日度数据（tCO₂e）',
+    legendDot: '日减排量（tCO₂e）',
+    legend: '7 天累计：355 tCO₂e',
+    bars: [
+      {v:42, l:'8/5'}, {v:38, l:'8/6'}, {v:55, l:'8/7'}, {v:48, l:'8/8'},
+      {v:62, l:'8/9'}, {v:58, l:'8/10'}, {v:52, l:'8/11'}
+    ],
+    events: [
+      {dot:'green', tag:'green', tagText:'热解', event:'热解批次 #B0811-03 完成，产率 42.3%', time:'8/11 14:32'},
+      {dot:'purple', tag:'purple', tagText:'交易', event:'CCER 交易成交 50 tCO₂e @ ¥65/t', time:'8/11 09:45'},
+      {dot:'orange', tag:'orange', tagText:'质检', event:'质检报告 QR-0810-02 已上传，碳含量 78.2%', time:'8/10 11:20'},
+      {dot:'cyan', tag:'cyan', tagText:'入库', event:'原料入库 · 牛粪 18 吨', time:'8/09 15:40'},
+      {dot:'green', tag:'green', tagText:'热解', event:'热解批次 #B0810-05 完成，产率 43.2%', time:'8/08 10:05'},
+      {dot:'gray', tag:'green', tagText:'设备', event:'3# 反应釜 进入待机状态', time:'8/07 16:30'},
+      {dot:'orange', tag:'orange', tagText:'质检', event:'质检报告 QR-0809-01 已上传，碳含量 77.1%', time:'8/05 14:00'}
+    ],
+    tlBadge: '7 天 7 条'
+  };
+}
+
+function getDemoOverview(range) {
+  range = range || currentOverviewRange || '7d';
+  var d = _overviewRangeData(range);
+
+  // KPI row
+  var kpiHtml = '<div class="kpi-row">' + d.kpis.map(function(k) {
     return '<div class="kpi-card"><div class="kpi-head"><span class="kpi-label">' + k.label + '</span><div class="kpi-icon ' + k.c + '">' + k.ic + '</div></div><div class="kpi-value-row"><span class="kpi-value">' + k.v + '</span><span class="kpi-unit">' + k.u + '</span></div><div><span class="kpi-trend ' + k.trendDir + '">' + _up + k.trend + '</span><span class="kpi-sub">  ' + k.sub + '</span></div></div>';
   }).join('') + '</div>';
 
   // Bar chart
-  var bars = [
-    {v:42, l:'8/5'}, {v:38, l:'8/6'}, {v:55, l:'8/7'}, {v:48, l:'8/8'},
-    {v:62, l:'8/9'}, {v:58, l:'8/10'}, {v:52, l:'8/11'}
-  ];
-  var maxV = 62;
-  var barHtml = '<div class="chart-bars">' + bars.map(function(b) {
+  var maxV = 1;
+  for (var bi = 0; bi < d.bars.length; bi++) { if (d.bars[bi].v > maxV) maxV = d.bars[bi].v; }
+  var barHtml = '<div class="chart-bars">' + d.bars.map(function(b) {
     var pct = Math.round(b.v / maxV * 100);
     return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div><span class="chart-bar-label">' + b.l + '</span></div>';
   }).join('') + '</div>';
+
+  // Time switcher
+  var tsHtml = '<div class="time-switcher">'
+    + '<div class="time-switcher-item' + (range === 'today' ? ' active' : '') + '" data-range="today">今日</div>'
+    + '<div class="time-switcher-item' + (range === '7d' ? ' active' : '') + '" data-range="7d">7天</div>'
+    + '<div class="time-switcher-item' + (range === '30d' ? ' active' : '') + '" data-range="30d">30天</div>'
+    + '</div>';
 
   // Reactors
   var reactors = [
@@ -1769,18 +1931,11 @@ function getDemoOverview() {
     {name:'3# 反应釜', status:'idle', temp:'—', mat:'待机'}
   ];
   var reactorHtml = '<div class="reactor-list">' + reactors.map(function(r) {
-    return '<div class="reactor-item"><div class="reactor-dot ' + r.status + '"></div><div class="reactor-info"><div class="reactor-name">' + r.name + '</div><div class="reactor-meta">' + (r.status==='running'?'运行中 · '+r.mat:'待机中') + '</div></div><div class="reactor-temp' + (r.status==='idle'?' idle':'') + '">' + r.temp + '</div></div>';
+    return '<div class="reactor-item"><div class="reactor-dot ' + r.status + '"></div><div class="reactor-info"><div class="reactor-name">' + r.name + '</div><div class="reactor-meta">' + (r.status === 'running' ? '运行中 · ' + r.mat : '待机中') + '</div></div><div class="reactor-temp' + (r.status === 'idle' ? ' idle' : '') + '">' + r.temp + '</div></div>';
   }).join('') + '</div>';
 
   // Timeline
-  var events = [
-    {dot:'green', tag:'green', tagText:'热解', event:'热解批次 #B0811-03 完成，产率 42.3%', time:'14:32'},
-    {dot:'cyan', tag:'cyan', tagText:'入库', event:'原料入库 · 玉米秸秆 12.5 吨', time:'13:15'},
-    {dot:'orange', tag:'orange', tagText:'质检', event:'质检报告 QR-0810-02 已上传，碳含量 78.2%', time:'11:08'},
-    {dot:'purple', tag:'purple', tagText:'交易', event:'CCER 交易成交 50 tCO₂e @ ¥65/t', time:'09:45'},
-    {dot:'gray', tag:'green', tagText:'设备', event:'1# 反应釜 启动运行', time:'08:30'}
-  ];
-  var tlHtml = '<div class="tl-list">' + events.map(function(e) {
+  var tlHtml = '<div class="tl-list">' + d.events.map(function(e) {
     return '<div class="tl-item"><div class="tl-dot ' + e.dot + '"></div><div class="tl-body"><div class="tl-event">' + e.event + '<span class="tl-tag ' + e.tag + '">' + e.tagText + '</span></div><div class="tl-time">' + e.time + '</div></div></div>';
   }).join('') + '</div>';
 
@@ -1795,26 +1950,43 @@ function getDemoOverview() {
     return '<div class="guide-step-item active" style="justify-content:space-between"><div class="guide-step-content"><div class="guide-step-row"><span class="guide-step-title">' + s.label + '</span></div></div><div style="font-size:20px;font-weight:700;color:var(--c-green-deep)">' + s.value + '<span style="font-size:12px;font-weight:500;color:var(--c-text-3)">' + s.unit + '</span></div></div>';
   }).join('') + '</div></div>';
 
+  // Summary banner
+  var bannerHtml = '<div class="demo-banner"><div class="demo-banner-left"><div class="demo-banner-title">' + _ic.check + '系统运行正常</div><div class="demo-banner-desc">' + d.bannerDesc + '</div></div><div class="demo-banner-stats">' + d.bannerStats.map(function(s) {
+    return '<div class="demo-banner-stat"><div class="demo-banner-stat-value">' + s.v + (s.u ? '<span style="font-size:13px;font-weight:500;color:var(--c-text-3)">' + s.u + '</span>' : '') + '</div><div class="demo-banner-stat-label">' + s.l + '</div></div>';
+  }).join('') + '</div></div>';
+
   return '<div class="module-page">' +
     // Summary banner
-    '<div class="demo-banner"><div class="demo-banner-left"><div class="demo-banner-title">' + _ic.check + '系统运行正常</div><div class="demo-banner-desc">今日已完成 3 个热解批次，原料库存充足，设备运行正常</div></div><div class="demo-banner-stats"><div class="demo-banner-stat"><div class="demo-banner-stat-value">18.5<span style="font-size:13px;font-weight:500;color:var(--c-text-3)"> 吨</span></div><div class="demo-banner-stat-label">今日产量</div></div><div class="demo-banner-stat"><div class="demo-banner-stat-value">52<span style="font-size:13px;font-weight:500;color:var(--c-text-3)"> tCO₂e</span></div><div class="demo-banner-stat-label">今日减排</div></div><div class="demo-banner-stat"><div class="demo-banner-stat-value">2/3</div><div class="demo-banner-stat-label">设备运行</div></div></div></div>' +
+    bannerHtml +
     // KPIs
     kpiHtml +
     // Main row: chart + reactors
-    '<div class="main-row"><div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">减排趋势</div><div class="card-sub">碳汇核算日度数据（tCO₂e）</div></div><div class="time-switcher"><div class="time-switcher-item" data-range="today">今日</div><div class="time-switcher-item active" data-range="7d">7天</div><div class="time-switcher-item" data-range="30d">30天</div></div></div><div class="chart-area">' + barHtml + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>日减排量（tCO₂e）</span><span>7 天累计：355 tCO₂e</span></div></div></div><div class="reactor-card"><div class="card-head"><div class="card-head-left"><div class="card-title">设备状态</div><div class="card-sub">反应釜运行监控</div></div><span class="reactor-more" onclick="showToast(\'共 3 台设备\')">查看全部</span></div>' + reactorHtml + '</div></div>' +
+    '<div class="main-row"><div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">减排趋势</div><div class="card-sub">' + d.chartSub + '</div></div>' + tsHtml + '</div><div class="chart-area">' + barHtml + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>' + d.legendDot + '</span><span>' + d.legend + '</span></div></div></div><div class="reactor-card"><div class="card-head"><div class="card-head-left"><div class="card-title">设备状态</div><div class="card-sub">反应釜运行监控</div></div><span class="reactor-more" onclick="showToast(\'共 3 台设备\')">查看全部</span></div>' + reactorHtml + '</div></div>' +
     // Bottom row: timeline + system status
-    '<div class="bottom-row"><div class="timeline-card"><div class="card-head"><div class="card-head-left"><div class="card-title">最新动态</div><div class="card-sub">系统事件时间线</div></div><span class="tl-badge">今日 5 条</span></div>' + tlHtml + '</div>' + sysHtml + '</div>' +
+    '<div class="bottom-row"><div class="timeline-card"><div class="card-head"><div class="card-head-left"><div class="card-title">最新动态</div><div class="card-sub">系统事件时间线</div></div><span class="tl-badge">' + d.tlBadge + '</span></div>' + tlHtml + '</div>' + sysHtml + '</div>' +
     '</div>';
 }
 
 function getDemoModule(key) {
   if (key === 'materials') {
+    var matTypes = [
+      {name:'秸秆类', v:805},
+      {name:'畜禽粪便', v:275},
+      {name:'林业废弃物', v:168},
+      {name:'其他', v:0}
+    ];
+    var matTotal = 1248;
+    var matChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">原料库存构成</div><div class="card-sub">按类型占比（共 ' + matTotal + ' 吨）</div></div></div><div class="chart-area"><div class="hbar-list">' + matTypes.map(function(t) {
+      var pct = (t.v / matTotal * 100).toFixed(1);
+      var fill = t.v > 0 ? '<div class="hbar-fill" style="width:' + pct + '%"></div>' : '';
+      return '<div class="hbar-item"><div class="hbar-head"><span class="hbar-name">' + t.name + '</span><span class="hbar-val">' + t.v + ' 吨 · ' + pct + '%</span></div><div class="hbar-track">' + fill + '</div></div>';
+    }).join('') + '</div></div></div>';
     return _statRow([
       {label:'库存总量', v:'1,248', u:'吨', c:'green', ic:_ic.box},
       {label:'预警原料', v:'3', u:'种', c:'orange', ic:_ic.alert, s:'鸡粪、稻壳、蘑菇渣'},
       {label:'本月入库', v:'186', u:'吨', c:'cyan', ic:_ic.down, s:'较上月 +24 吨'},
       {label:'供应商', v:'12', u:'家', c:'purple', ic:_ic.users}
-    ]) + _table('原料库存清单', '共 8 条记录，其中 3 条预警', [
+    ]) + matChart + _table('原料库存清单', '共 8 条记录，其中 3 条预警', [
       {t:'原料名称'},{t:'类型'},{t:'库存量(吨)',n:true},{t:'状态'},{t:'供应商'},{t:'最近入库'}
     ], [
       ['玉米秸秆','秸秆类','385','<span class="tag success">正常</span>','绿源农业','2026-08-10'],
@@ -1829,12 +2001,22 @@ function getDemoModule(key) {
   }
 
   if (key === 'pyrolysis') {
+    var pyBars = [
+      {v:39.0, l:'8/5'}, {v:40.5, l:'8/6'}, {v:41.0, l:'8/7'}, {v:41.8, l:'8/8'},
+      {v:42.5, l:'8/9'}, {v:43.2, l:'8/10'}, {v:44.6, l:'8/11'}
+    ];
+    var pyMax = 44.6;
+    var pyBarHtml = '<div class="chart-bars" style="min-height:150px">' + pyBars.map(function(b) {
+      var pct = Math.round(b.v / pyMax * 100);
+      return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v.toFixed(1) + '</span><div class="chart-bar" style="height:' + pct + '%"></div><span class="chart-bar-label">' + b.l + '</span></div>';
+    }).join('') + '</div>';
+    var pyChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">近 7 批次产率</div><div class="card-sub">已完成批次生物炭产率（%）</div></div></div><div class="chart-area">' + pyBarHtml + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>批次产率</span><span>7 批次均值：41.8%</span></div></div></div>';
     return _statRow([
       {label:'总批次', v:'48', u:'个', c:'green', ic:_ic.fire},
       {label:'运行中', v:'2', u:'台', c:'cyan', ic:_ic.bolt, s:'1# 520°C · 2# 480°C'},
       {label:'平均产率', v:'41.8', u:'%', c:'orange', ic:_ic.trend, s:'较上月 +2.1%'},
       {label:'累计产量', v:'386', u:'吨', c:'purple', ic:_ic.box}
-    ]) + _table('热解批次记录', '最近 6 个批次', [
+    ]) + pyChart + _table('热解批次记录', '最近 6 个批次', [
       {t:'批次号'},{t:'状态'},{t:'原料'},{t:'温度(°C)',n:true},{t:'产率(%)',n:true},{t:'开始时间'}
     ], [
       ['B0811-03','<span class="tag success">运行中</span>','玉米秸秆','520','—','08-11 08:30'],
@@ -1847,20 +2029,63 @@ function getDemoModule(key) {
   }
 
   if (key === 'analysis') {
+    var anRows = [
+      ['QR-0810-02','B0810-05','78.2','8.5','15.3','28.5','<span class="tag success">达标</span>',''],
+      ['QR-0810-01','B0810-04','76.5','9.2','16.1','27.8','<span class="tag success">达标</span>',''],
+      ['QR-0809-03','B0810-03','75.8','10.1','15.8','27.2','<span class="tag success">达标</span>',''],
+      ['QR-0809-02','B0810-02','74.3','11.5','16.5','26.5','<span class="tag danger">非达标</span>','<div class="stat-card-sub" style="color:var(--c-red)">灰分超标 11.5%</div>'],
+      ['QR-0809-01','B0810-01','77.1','8.8','15.0','28.1','<span class="tag success">达标</span>',''],
+      ['QR-0808-05','B0808-07','71.2','14.2','18.0','24.1','<span class="tag danger">非达标</span>','<div class="stat-card-sub" style="color:var(--c-red)">碳含量低 · 灰分高</div>'],
+      ['QR-0808-04','B0808-06','76.9','9.0','15.6','27.6','<span class="tag success">达标</span>',''],
+      ['QR-0807-03','B0807-05','69.8','15.6','18.5','22.9','<span class="tag danger">非达标</span>','<div class="stat-card-sub" style="color:var(--c-red)">热值低 · 灰分高</div>'],
+      ['QR-0807-02','B0807-04','75.4','9.8','16.2','27.0','<span class="tag success">达标</span>','']
+    ];
+    var anTableRows = anRows.map(function(row) {
+      var bad = row[6].indexOf('非达标') > -1;
+      var html = '<tr' + (bad ? ' style="background:rgba(239,68,68,0.04)"' : '') + '>';
+      for (var i = 0; i < 6; i++) {
+        html += '<td' + (i >= 2 && i <= 5 ? ' class="r"' : '') + '>' + row[i] + '</td>';
+      }
+      html += '<td>' + row[6] + (row[7] || '') + '</td>';
+      html += '</tr>';
+      return html;
+    }).join('');
+    var nonpassRows = [
+      ['QR-0809-02','B0810-02','灰分偏高','11.5%','≤ 10.0%','提高热解温度并延长保温时间'],
+      ['QR-0808-05','B0808-07','碳含量偏低 / 灰分偏高','碳 71.2% / 灰分 14.2%','碳 ≥ 75.0% / 灰分 ≤ 10.0%','调整原料配比，增加高碳原料占比'],
+      ['QR-0807-03','B0807-05','热值偏低 / 灰分偏高','热值 22.9 MJ/kg / 灰分 15.6%','热值 ≥ 24.0 MJ/kg / 灰分 ≤ 10.0%','增加烘干工序，降低原料含水率']
+    ];
+    var nonpassTable = nonpassRows.map(function(r) {
+      return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td style="color:var(--c-red);font-weight:600">' + r[2] + '</td><td>' + r[3] + '</td><td>' + r[4] + '</td><td>' + r[5] + '</td></tr>';
+    }).join('');
+    var nonpassHtml = '<div class="nonpass-panel" id="nonpass-panel"><div class="data-table"><div class="nonpass-head"><div class="nonpass-title">' + _ic.alert + '非达标样品明细（3 条）</div><button class="nonpass-close" onclick="toggleNonpassPanel(false)" title="收起"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l8 8M11 3l-8 8"/></svg></button></div><table><thead><tr><th>样品编号</th><th>批次</th><th>超标指标</th><th>实测值</th><th>标准值</th><th>整改建议</th></tr></thead><tbody>' + nonpassTable + '</tbody></table></div></div>';
+    var anTotal = 9, anPass = 6, anFail = 3;
+    var anPassPctNum = anPass / anTotal * 100;
+    var anPassPct = anPassPctNum.toFixed(1);
+    var anFailPct = (100 - anPassPctNum).toFixed(1);
+    var anC = (2 * Math.PI * 45).toFixed(1);
+    var anPassDash = (anPassPctNum / 100 * parseFloat(anC)).toFixed(1);
+    var anFailDash = (100 - anPassPctNum) / 100 * parseFloat(anC);
+    var donutHtml = '<div class="donut-wrap">'
+      + '<svg class="donut-svg" viewBox="0 0 120 120">'
+      + '<circle cx="60" cy="60" r="45" fill="none" stroke="#F3F4F6" stroke-width="16"/>'
+      + '<circle cx="60" cy="60" r="45" fill="none" stroke="var(--c-primary)" stroke-width="16" stroke-dasharray="' + anPassDash + ' ' + anC + '" transform="rotate(-90 60 60)"/>'
+      + '<circle cx="60" cy="60" r="45" fill="none" stroke="var(--c-red)" stroke-width="16" stroke-dasharray="' + anFailDash.toFixed(1) + ' ' + anC + '" stroke-dashoffset="-' + anPassDash + '" transform="rotate(-90 60 60)"/>'
+      + '<text x="60" y="58" text-anchor="middle" font-size="17" font-weight="700" fill="#1F2937">' + anPass + '/' + anTotal + '</text>'
+      + '<text x="60" y="74" text-anchor="middle" font-size="10" fill="#9CA3AF">达标率 ' + anPassPct + '%</text>'
+      + '</svg>'
+      + '<div class="donut-legend">'
+      + '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:var(--c-primary)"></span>达标样品 <strong>' + anPass + '</strong><span class="pct">' + anPassPct + '%</span></div>'
+      + '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:var(--c-red)"></span>非达标样品 <strong>' + anFail + '</strong><span class="pct">' + anFailPct + '%</span></div>'
+      + '</div></div>';
+    var anChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">样品达标分布</div><div class="card-sub">共 9 个样品 · 6 达标 / 3 非达标</div></div></div><div class="chart-area">' + donutHtml + '</div></div>';
+    var anTable = '<div class="data-table"><div class="data-table-head"><div><div class="data-table-title">质检样品记录</div><div class="data-table-sub">共 9 条记录 · 6 达标 / 3 非达标</div></div></div><table><thead><tr><th>样品编号</th><th>批次</th><th class="r">碳含量(%)</th><th class="r">灰分(%)</th><th class="r">挥发分(%)</th><th class="r">热值(MJ/kg)</th><th>状态</th></tr></thead><tbody>' + anTableRows + '</tbody></table></div>';
     return _statRow([
-      {label:'总样品数', v:'24', u:'个', c:'green', ic:_ic.flask},
-      {label:'达标', v:'21', u:'个', c:'cyan', ic:_ic.check, s:'达标率 87.5%'},
-      {label:'非达标', v:'3', u:'个', c:'red', ic:_ic.alert, s:'需复检或调整工艺'},
-      {label:'平均碳含量', v:'76.8', u:'%', c:'orange', ic:_ic.trend, s:'较上月 +1.2%'}
-    ]) + _table('质检样品记录', '最近 5 个样品', [
-      {t:'样品编号'},{t:'批次'},{t:'碳含量(%)',n:true},{t:'灰分(%)',n:true},{t:'挥发分(%)',n:true},{t:'热值(MJ/kg)',n:true},{t:'状态'}
-    ], [
-      ['QR-0810-02','B0810-05','78.2','8.5','15.3','28.5','<span class="tag success">达标</span>'],
-      ['QR-0810-01','B0810-04','76.5','9.2','16.1','27.8','<span class="tag success">达标</span>'],
-      ['QR-0809-03','B0810-03','75.8','10.1','15.8','27.2','<span class="tag success">达标</span>'],
-      ['QR-0809-02','B0810-02','74.3','11.5','16.5','26.5','<span class="tag danger">非达标</span>'],
-      ['QR-0809-01','B0810-01','77.1','8.8','15.0','28.1','<span class="tag success">达标</span>']
-    ]);
+      {label:'总样品数', v:'9', u:'个', c:'green', ic:_ic.flask},
+      {label:'达标', v:'6', u:'个', c:'cyan', ic:_ic.check, s:'达标率 66.7%'},
+      {label:'非达标', v:'3', u:'个', c:'red', ic:_ic.alert, s:'点击查看明细', key:'nonpass', clickable:true},
+      {label:'平均碳含量', v:'75.0', u:'%', c:'orange', ic:_ic.trend, s:'9 个样品均值'}
+    ]) + nonpassHtml + anChart + anTable;
   }
 
   if (key === 'pollution') {
@@ -1875,12 +2100,16 @@ function getDemoModule(key) {
     var monitorHtml = '<div class="monitor-grid">' + monitors.map(function(m) {
       return '<div class="monitor-card"><div class="monitor-card-head"><span class="monitor-card-name">' + m.name + '</span><span class="tag success">达标</span></div><div><span class="monitor-card-value">' + m.value + '</span><span class="monitor-card-unit">' + m.unit + '</span></div><div class="monitor-card-bar"><div class="monitor-card-bar-fill ok" style="width:' + m.pct + '%"></div></div><div class="stat-card-sub">排放限值 ' + m.limit + '</div></div>';
     }).join('') + '</div>';
+    var monChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">排放浓度占用率</div><div class="card-sub">实测值 / 排放限值（%）</div></div></div><div class="chart-area"><div class="hbar-list">' + monitors.map(function(m) {
+      var warnCls = m.pct >= 70 ? ' warn' : '';
+      return '<div class="hbar-item"><div class="hbar-head"><span class="hbar-name">' + m.name + '</span><span class="hbar-val">' + m.value + ' ' + m.unit + ' / ' + m.limit + '</span></div><div class="hbar-track"><div class="hbar-fill' + warnCls + '" style="width:' + m.pct + '%"></div></div></div>';
+    }).join('') + '</div></div></div>';
     return _statRow([
       {label:'尾气达标率', v:'98.5', u:'%', c:'green', ic:_ic.shield},
       {label:'废水达标率', v:'100', u:'%', c:'cyan', ic:_ic.check},
       {label:'在线设备', v:'6', u:'台', c:'orange', ic:_ic.gauge, s:'全部正常运行'},
       {label:'本月预警', v:'2', u:'次', c:'purple', ic:_ic.alert, s:'已自动恢复'}
-    ]) + '<div class="module-page" style="gap:16px">' + monitorHtml + '</div>';
+    ]) + monChart + '<div class="module-page" style="gap:16px">' + monitorHtml + '</div>';
   }
 
   if (key === 'carbonsink') {
