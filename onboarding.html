@@ -2341,7 +2341,7 @@ function getModuleContent(key) {
 
 /* ========== Entry Modal (真实数据录入弹窗) ========== */
 // 用户录入的数据（内存态，非演示数据）
-window.entryData = { materials: [], pyrolysis: [], analysis: [], carbonsink: [], trading: [] };
+window.entryData = { materials: [], pyrolysis: [], pollution: [], analysis: [], carbonsink: [], trading: [] };
 
 const ENTRY_FORMS = {
   materials: {
@@ -2458,6 +2458,8 @@ function submitEntry(key) {
     if (!record[label]) missing = true;
   });
   if (missing) { showToast('请完整填写所有字段'); return; }
+  // 防御：若该模块数据数组未初始化则自动创建（避免漏初始化导致保存失效）
+  if (!window.entryData[key]) window.entryData[key] = [];
   window.entryData[key].push(record);
   closeEntryModal();
   // 下一步引导（业务链联动）
