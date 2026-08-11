@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>碳智汇 — 开发日志</title>
+<style>
+:root {
+  --green: #0FBA82;
+  --green-deep: #059669;
+  --green-light: rgba(15,186,130,0.10);
+  --cyan: #05B5D4;
+  --orange: #F59E0A;
+  --purple: #4F45E6;
+  --text-1: #1F2937;
+  --text-2: #6B7280;
+  --text-3: #9CA3AF;
+  --bg: #F5F7FA;
+  --border: #E5E7EB;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text-1); line-height: 1.7; -webkit-font-smoothing: antialiased; }
+
+.header {
+  background: linear-gradient(135deg, var(--green), var(--cyan));
+  padding: 48px 40px;
+  color: #fff;
+}
+.header h1 { font-size: 28px; font-weight: 700; }
+.header .subtitle { font-size: 15px; opacity: 0.9; margin-top: 8px; }
+.header .meta { display: flex; gap: 24px; margin-top: 20px; font-size: 13px; opacity: 0.85; }
+.header .meta span { display: flex; align-items: center; gap: 6px; }
+
+.container { max-width: 860px; margin: 0 auto; padding: 32px 24px 64px; }
+
+.section { margin-bottom: 40px; }
+.section-title {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--green);
+}
+.section-title .num {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700;
+  flex-shrink: 0;
+}
+.section-title h2 { font-size: 18px; font-weight: 700; color: var(--text-1); }
+.section-title .date { font-size: 13px; color: var(--text-3); margin-left: auto; }
+
+.content-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 2px rgba(15,28,41,0.04);
+  margin-bottom: 12px;
+}
+.content-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text-1); display: flex; align-items: center; gap: 8px; }
+.content-card h3::before { content: ''; width: 4px; height: 16px; border-radius: 2px; background: var(--green); flex-shrink: 0; }
+.content-card p { font-size: 14px; color: var(--text-2); margin-bottom: 8px; }
+.content-card ul { list-style: none; padding-left: 0; }
+.content-card li { font-size: 14px; color: var(--text-2); padding: 6px 0 6px 20px; position: relative; }
+.content-card li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); position: absolute; left: 4px; top: 14px; }
+.content-card li strong { color: var(--text-1); font-weight: 600; }
+
+.tag { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.tag-green { background: var(--green-light); color: var(--green-deep); }
+.tag-orange { background: rgba(245,158,10,0.10); color: var(--orange); }
+.tag-purple { background: rgba(79,69,230,0.10); color: var(--purple); }
+.tag-cyan { background: rgba(5,181,212,0.10); color: var(--cyan); }
+
+.code-block {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 13px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  overflow-x: auto;
+  margin: 12px 0;
+  line-height: 1.6;
+}
+.code-block .key { color: #93c5fd; }
+.code-block .val { color: #86efac; }
+.code-block .comment { color: #64748b; }
+
+.summary-box {
+  background: linear-gradient(135deg, rgba(15,186,130,0.06), rgba(5,181,212,0.06));
+  border: 1px solid rgba(15,186,130,0.15);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 16px 0;
+}
+.summary-box h4 { font-size: 14px; font-weight: 600; color: var(--green-deep); margin-bottom: 8px; }
+.summary-box p { font-size: 14px; color: var(--text-2); }
+
+.file-list { display: flex; flex-direction: column; gap: 8px; }
+.file-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.file-item .file-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--green-light); color: var(--green); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.file-item .file-info { flex: 1; }
+.file-item .file-name { font-size: 14px; font-weight: 500; color: var(--text-1); }
+.file-item .file-desc { font-size: 12px; color: var(--text-3); }
+.file-item .file-size { font-size: 13px; color: var(--text-3); }
+
+.timeline {
+  position: relative;
+  padding-left: 24px;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px; top: 8px; bottom: 8px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--green), var(--cyan));
+  border-radius: 1px;
+}
+.timeline-item { position: relative; padding-bottom: 24px; }
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -20px; top: 4px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--green);
+}
+.timeline-item .time { font-size: 12px; color: var(--text-3); }
+.timeline-item .title { font-size: 14px; font-weight: 600; color: var(--text-1); margin-top: 2px; }
+.timeline-item .desc { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+
+.footer {
+  text-align: center;
+  padding: 32px;
+  font-size: 13px;
+  color: var(--text-3);
+  border-top: 1px solid var(--border);
+  margin-top: 40px;
+}
+
+@media (max-width: 600px) {
+  .container { padding: 20px 16px 40px; }
+  .header { padding: 32px 20px; }
+  .header h1 { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>碳智汇 — 生物质固废碳管理数据看板</h1>
+  <div class="subtitle">开发日志 · Development Log</div>
+  <div class="meta">
+    <span>📅 2026-08-11</span>
+    <span>👤 AI 协作开发</span>
+    <span>📁 桌面 / 碳智汇-生物质固废碳管理数据看板</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- 项目概述 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">0</div>
+      <h2>项目概述</h2>
+    </div>
+    <div class="content-card">
+      <p><strong>碳智汇</strong>是一款面向生物质固废转化企业的碳管理数据看板应用，覆盖从原料入库到碳交易的全流程数据管理。核心模块包括：总览仪表盘、原料管理、热解制备、碳质分析、污染治理、碳汇核算、碳交易市场和 AI 智能优化。</p>
+      <div class="summary-box">
+        <h4>技术栈</h4>
+        <p>单文件 HTML（HTML + CSS + JS 全部内联）· ECharts 数据可视化 · localStorage 持久化 · Ardot 设计工具（画布设计稿 → 代码还原）</p>
+      </div>
+      <div class="file-list" style="margin-top:16px;">
+        <div class="file-item">
+          <div class="file-icon">主</div>
+          <div class="file-info">
+            <div class="file-name">index.html</div>
+            <div class="file-desc">主应用 · 生物质固废碳管理数据看板（含 8 大模块完整功能）</div>
+          </div>
+          <div class="file-size">387 KB</div>
+        </div>
+        <div class="file-item">
+          <div class="file-icon">新</div>
+          <div class="file-info">
+            <div class="file-name">onboarding.html</div>
+            <div class="file-desc">首次启动体验 · 欢迎页 + 配置向导 + 空状态仪表盘 + 演示模式</div>
+          </div>
+          <div class="file-size">97 KB</div>
+        </div>
+        <div class="file-item">
+          <div class="file-icon">日</div>
+          <div class="file-info">
+            <div class="file-name">开发日志.html</div>
+            <div class="file-desc">本文件 · 完整开发过程记录</div>
+          </div>
+          <div class="file-size">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 1 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">1</div>
+      <h2>初始审查与两项调整</h2>
+      <span class="date">13:14 - 13:45</span>
+    </div>
+    <div class="content-card">
+      <h3>需求</h3>
+      <p>用户提出两项具体调整需求：</p>
+      <ul>
+        <li><strong>原料管理</strong>：预警原料卡片需可点击筛选，点击后显示处于预警状态的原料列表</li>
+        <li><strong>碳质分析</strong>：新增非达标样品栏，显示非达标状态的样品及其数量</li>
+      </ul>
+    </div>
+    <div class="content-card">
+      <h3>实现内容</h3>
+      <ul>
+        <li>原料管理页面预警卡片增加点击事件，展开预警原料的详细列表（名称、类型、库存量、预警原因）</li>
+        <li>碳质分析页面新增"非达标样品"数据栏，展示碳含量、灰分、挥发分、热值等指标未达标的样品</li>
+        <li>两个栏位均采用折叠/展开交互，默认收起、点击展开</li>
+      </ul>
+      <span class="tag tag-green">已完成</span>
+    </div>
+  </div>
+
+  <!-- Phase 2 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">2</div>
+      <h2>主动审查与改进建议</h2>
+      <span class="date">13:45 - 14:00</span>
+    </div>
+    <div class="content-card">
+      <h3>审查范围</h3>
+      <p>AI 主动审视整个 App，从交互体验、数据展示、功能完整性、代码质量四个维度进行全面审查。</p>
+      <h3 style="margin-top:16px;">18 项改进建议清单</h3>
+      <div class="code-block"><span class="comment">// 交互体验</span>
+<span class="key">1.</span> <span class="val">时间切换器功能化</span>（今日/7天/30天需真正切换数据）
+<span class="key">2.</span> <span class="val">KPI 卡片可点击跳转</span>到对应模块
+<span class="key">3.</span> <span class="val">动态事件时间线</span>替代静态列表
+<span class="key">4.</span> <span class="val">统一 Toast 提示</span>替代原生 alert
+<span class="key">5.</span> <span class="val">全局 ESC 键</span>关闭弹窗/取消选择
+
+<span class="comment">// 数据展示</span>
+<span class="key">6.</span> <span class="val">图表 Tooltip</span>美化与数据格式化
+<span class="key">7.</span> <span class="val">表格分页</span>与排序功能
+<span class="key">8.</span> <span class="val">数据导出</span>（CSV/Excel）
+<span class="key">9.</span> <span class="val">空状态设计</span>避免空白页
+<span class="key">10.</span> <span class="val">加载状态</span>骨架屏
+
+<span class="comment">// 功能完整性</span>
+<span class="key">11.</span> <span class="val">原料录入表单</span>验证与提交
+<span class="key">12.</span> <span class="val">批次管理</span>全流程串联
+<span class="key">13.</span> <span class="val">设备监控</span>实时状态
+<span class="key">14.</span> <span class="val">碳汇自动核算</span>规则引擎
+<span class="key">15.</span> <span class="val">碳交易价格</span>实时联动
+
+<span class="comment">// 代码质量</span>
+<span class="key">16.</span> <span class="val">模块化重构</span>组件复用
+<span class="key">17.</span> <span class="val">响应式适配</span>移动端
+<span class="key">18.</span> <span class="val">数据持久化</span>增强</div>
+    </div>
+  </div>
+
+  <!-- Phase 3 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">3</div>
+      <h2>执行改进修改</h2>
+      <span class="date">14:00 - 14:30</span>
+    </div>
+    <div class="content-card">
+      <h3>用户指令</h3>
+      <p>用户表示"不要清单，直接改，看成品"，特别指出时间切换器要么发挥作用要么删去。</p>
+      <h3 style="margin-top:16px;">已执行修改</h3>
+      <ul>
+        <li><strong>时间切换器功能化</strong>：今日/7天/30天 切换后 KPI 数据、图表数据、事件时间线均实时更新</li>
+        <li><strong>动态事件时间线</strong>：系统运行事件按时间倒序展示，支持筛选（全部/原料/热解/质检/交易/设备）</li>
+        <li><strong>KPI 卡片点击跳转</strong>：4 张 KPI 卡片分别跳转到原料管理、热解制备、碳汇核算、碳交易市场</li>
+        <li><strong>统一 Toast 函数</strong>：全局 showToast(msg, type) 替代原生 alert，3 秒自动消失，支持 success/warning/error 三种类型</li>
+        <li><strong>全局键盘交互</strong>：ESC 键关闭所有弹窗、取消选择、收起展开面板</li>
+      </ul>
+      <span class="tag tag-green">已完成</span>
+    </div>
+  </div>
+
+  <!-- Phase 4 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">4</div>
+      <h2>生产模式设计稿</h2>
+      <span class="date">14:30 - 14:45</span>
+    </div>
+    <div class="content-card">
+      <h3>需求</h3>
+      <p>用户要求制作"实际应用样子"的生产模式设计稿（非演示模式），使用 Ardot 设计工具完成。</p>
+      <h3 style="margin-top:16px;">设计内容</h3>
+      <ul>
+        <li><strong>Screen 1</strong>：总览仪表盘生产模式 — 真实数据填充的 KPI、图表、设备状态、事件时间线</li>
+        <li><strong>Screen 2</strong>：原料管理生产模式 — 库存列表、预警面板、供应商信息</li>
+        <li>视觉风格与主 App 一致，绿色主色调 #0FBA82 + 青色辅助色 #05B5D4</li>
+      </ul>
+      <span class="tag tag-cyan">Ardot 设计稿</span>
+    </div>
+  </div>
+
+  <!-- Phase 5 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">5</div>
+      <h2>首次启动体验设计稿</h2>
+      <span class="date">14:45 - 15:00</span>
+    </div>
+    <div class="content-card">
+      <h3>需求</h3>
+      <p>用户要求制作"首次打开"的初始状态设计稿——新用户刚下载 App 第一次打开时看到的界面。</p>
+      <h3 style="margin-top:16px;">三屏设计</h3>
+      <ul>
+        <li><strong>Screen 1 - 欢迎页</strong>（0,0, 1440×900）：纯白底 + 淡绿/青/橙装饰圆，渐变 Logo，标题"碳智汇"，3 特性图标行，绿色 CTA 按钮"开始使用" + "先体验演示数据"次链接，底部版本号</li>
+        <li><strong>Screen 2 - 配置向导</strong>（1540,0, 1440×900）：左侧边栏（Logo + 初始化向导标签 + 3 步骤列表，步骤 1 高亮），右侧主区域（进度条 1/3 填充 + 白色表单卡片：企业名称输入框、行业下拉、地区、原料类型 chips 多选）</li>
+        <li><strong>Screen 3 - 空状态仪表盘</strong>（3080,0, 1440×1100）：完整侧边栏 8 模块导航，顶部栏 + 面包屑，青绿渐变欢迎 Banner，4 张空 KPI 卡（"—"值 + 引导提示），减排趋势空状态，设备状态空状态 + 添加按钮，新手引导 4 步清单</li>
+      </ul>
+      <div class="summary-box">
+        <h4>设计文件</h4>
+        <p>文件名：碳智汇-首次启动体验 · 文件ID：713660987545304 · 链接：ardot.tencent.com/file/713660987545304</p>
+      </div>
+      <span class="tag tag-cyan">Ardot 设计稿</span>
+    </div>
+  </div>
+
+  <!-- Phase 6 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">6</div>
+      <h2>设计稿 → 应用代码还原</h2>
+      <span class="date">15:00 - 15:15</span>
+    </div>
+    <div class="content-card">
+      <h3>需求</h3>
+      <p>将 Ardot 画布中的三屏首次启动体验设计稿生成可运行应用，严格还原设计稿中的布局结构、配色、圆角、间距等视觉细节。</p>
+      <h3 style="margin-top:16px;">还原要点</h3>
+      <ul>
+        <li><strong>配色系统</strong>：从 Ardot 节点 fill/stroke 值精确提取全部色值——主色 #0FBA82、辅色 #05B5D4、点缀 #F59E0A / #4F45E6，四层灰阶文本色，统一写入 CSS 变量</li>
+        <li><strong>三屏路由</strong>：欢迎页 → 配置向导（3 步表单动态渲染）→ 空状态仪表盘，通过 JS goToScreen() 切换</li>
+        <li><strong>配置向导</strong>：表单输入框聚焦态（绿色描边 + 浅蓝底）、下拉选择器、多选 chips（选中/未选中两种样式）、进度条填充动画</li>
+        <li><strong>空状态仪表盘</strong>：8 项侧边栏导航、青绿渐变欢迎 Banner、4 张空 KPI 卡（"—"值 + 模块引导提示）、减排趋势空状态、设备状态空状态、新手引导 4 步清单</li>
+        <li><strong>圆角/间距</strong>：卡片圆角 12-16px，按钮 8px，chips 16px（pill），表单输入 8px，间距严格按设计稿 itemSpacing 值还原</li>
+        <li><strong>阴影</strong>：CTA 按钮 0 8px 24px rgba(15,186,130,0.35)，表单卡片 0 4px 24px + 0 1px 3px 双层阴影，欢迎 Banner 0 8px 24px</li>
+      </ul>
+      <span class="tag tag-green">已完成</span>
+      <span class="tag tag-purple">onboarding.html 初始版</span>
+    </div>
+  </div>
+
+  <!-- Phase 7 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">7</div>
+      <h2>空状态页面补全（8 模块导航）</h2>
+      <span class="date">15:15 - 15:30</span>
+    </div>
+    <div class="content-card">
+      <h3>问题</h3>
+      <p>用户指出空状态仪表盘里侧边栏 8 个模块点了没反应，进入后只能看总览页。</p>
+      <h3 style="margin-top:16px;">解决方案</h3>
+      <ul>
+        <li><strong>侧边栏 8 个模块全部可点击导航</strong>：总览仪表盘、原料管理、热解制备、碳质分析、污染治理、碳汇核算、碳交易市场、AI 智能优化</li>
+        <li><strong>每个模块都有专属空状态页面</strong>：结构统一——空状态卡片（图标 + 标题 + 说明 + 操作按钮）+ 两张信息卡片介绍模块功能</li>
+        <li><strong>模块间依赖关系提示</strong>：
+          <ul style="margin-top:8px;">
+            <li>原料管理 → "添加第一批原料 — 请先完成初始化向导第 1 步"</li>
+            <li>热解制备 → "启动第一个热解批次 — 请先在初始化向导第 2 步添加反应釜设备"</li>
+            <li>碳质分析 → "上传质检报告 — 需先完成至少一个热解批次"</li>
+            <li>污染治理 → "配置治理设备 — 请先完成企业信息配置"</li>
+            <li>碳汇核算 → "录入核算数据 — 需先完成热解批次和质检"</li>
+            <li>碳交易市场 → "关联交易账户 — 请先完成碳汇核算"</li>
+            <li>AI 智能优化 → "启用分析 — 需先积累至少 3 个批次的生产数据"</li>
+          </ul>
+        </li>
+      </ul>
+      <span class="tag tag-green">已完成</span>
+    </div>
+  </div>
+
+  <!-- Phase 8 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">8</div>
+      <h2>演示模式（全量数据）</h2>
+      <span class="date">15:30 - 16:00</span>
+    </div>
+    <div class="content-card">
+      <h3>需求</h3>
+      <p>用户确认首次启动体验流程后，要求生成演示模式——让点"先体验演示数据"的用户能看到所有模块都有真实数据的样子。</p>
+      <h3 style="margin-top:16px;">演示数据内容</h3>
+      <ul>
+        <li><strong>入口</strong>：欢迎页"先体验演示数据" → 演示模式，顶栏橙色"演示模式"徽章 + 退出按钮</li>
+        <li><strong>总览仪表盘</strong>：系统运行状态 banner（产量 18.5 吨 / 减排 52 tCO₂e / 设备 2/3 运行）→ 4 张 KPI 卡（库存 1,248 吨、生物炭 386 吨、碳汇 1,052 tCO₂e、CCER 收益 ¥68,200）→ 7 天减排柱状图 → 3 台反应釜设备列表 → 5 条事件时间线 → 月度运行概览</li>
+        <li><strong>原料管理</strong>：4 张统计卡 + 8 行原料库存表格（正常/预警/缺货三种状态标签）</li>
+        <li><strong>热解制备</strong>：4 张统计卡 + 6 行批次记录表格（2 个运行中 + 4 个已完成，含温度和产率）</li>
+        <li><strong>碳质分析</strong>：4 张统计卡 + 5 行质检样品表格（碳含量/灰分/挥发分/热值，达标与非达标状态）</li>
+        <li><strong>污染治理</strong>：4 张统计卡 + 6 个监控指标卡片网格（SO₂、NOx、粉尘、COD、氨氮、噪音）</li>
+        <li><strong>碳汇核算</strong>：4 张统计卡 + 6 个月减排趋势柱状图</li>
+        <li><strong>碳交易市场</strong>：4 张统计卡 + 14 天价格走势图 + 4 行交易记录表格</li>
+        <li><strong>AI 智能优化</strong>：4 张统计卡 + 3 张优化建议卡片（温度优化、原料配比、能耗降低，每张有预期收益和"采纳"按钮）</li>
+      </ul>
+      <span class="tag tag-green">已完成</span>
+      <span class="tag tag-orange">演示模式</span>
+    </div>
+  </div>
+
+  <!-- 技术细节 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">9</div>
+      <h2>关键技术细节</h2>
+    </div>
+    <div class="content-card">
+      <h3>CSS Design Tokens</h3>
+      <div class="code-block"><span class="comment">/* 从 Ardot 设计稿提取的精确色值 */</span>
+:root {
+  <span class="key">--c-primary</span>: <span class="val">#0FBA82</span>;   <span class="comment">/* 主色 绿 */</span>
+  <span class="key">--c-cyan</span>:    <span class="val">#05B5D4</span>;   <span class="comment">/* 辅色 青 */</span>
+  <span class="key">--c-orange</span>:  <span class="val">#F59E0A</span>;   <span class="comment">/* 点缀 橙 */</span>
+  <span class="key">--c-purple</span>:  <span class="val">#4F45E6</span>;   <span class="comment">/* 点缀 紫 */</span>
+  <span class="key">--c-text-1</span>:  <span class="val">#1F2937</span>;   <span class="comment">/* 主文本 */</span>
+  <span class="key">--c-text-2</span>:  <span class="val">#6B7280</span>;   <span class="comment">/* 次文本 */</span>
+  <span class="key">--c-text-3</span>:  <span class="val">#9CA3AF</span>;   <span class="comment">/* 辅助文本 */</span>
+  <span class="key">--c-bg</span>:       <span class="val">#F5F7FA</span>;   <span class="comment">/* 页面背景 */</span>
+  <span class="key">--c-border</span>:   <span class="val">#E5E7EB</span>;   <span class="comment">/* 边框 */</span>
+  <span class="key">--radius-lg</span>:  <span class="val">12px</span>;       <span class="comment">/* 卡片圆角 */</span>
+  <span class="key">--radius-xl</span>:  <span class="val">16px</span>;       <span class="comment">/* 大卡片圆角 */</span>
+  <span class="key">--radius-md</span>:  <span class="val">8px</span>;        <span class="comment">/* 按钮圆角 */</span>
+}</div>
+    </div>
+    <div class="content-card">
+      <h3>Ardot 设计工具链</h3>
+      <ul>
+        <li><strong>create_design</strong> → 创建新设计文件</li>
+        <li><strong>search_style_guide</strong> → 搜索设计风格参考</li>
+        <li><strong>build_style_guide</strong> → 构建设计系统 tokens</li>
+        <li><strong>locate_available_space</strong> → 定位画布可用区域</li>
+        <li><strong>batch_edit (I/U/C/M/D/G)</strong> → 批量编辑节点：插入、更新、复制、移动、删除、图片</li>
+        <li><strong>batch_read</strong> → 批量读取节点属性（色值、圆角、间距、文字内容）</li>
+        <li><strong>capture_screenshot</strong> → 截图验证设计效果</li>
+        <li><strong>fetch_editor_state / fetch_file_info</strong> → 获取编辑器状态和文件信息</li>
+      </ul>
+    </div>
+    <div class="content-card">
+      <h3>应用架构</h3>
+      <div class="code-block"><span class="comment">// onboarding.html 架构</span>
+
+<span class="comment">// 三屏路由系统</span>
+<span class="key">goToScreen</span>(<span class="val">'welcome'</span> | <span class="val">'wizard'</span> | <span class="val">'dashboard'</span>)
+
+<span class="comment">// 模块切换（空状态 + 演示模式共用）</span>
+<span class="key">switchModule</span>(key)  <span class="comment">// overview / raw / pyrolysis / quality / pollution / carbon / trading / ai</span>
+
+<span class="comment">// 演示模式入口/退出</span>
+<span class="key">enterDemoMode</span>()  <span class="comment">// 注入全量演示数据</span>
+<span class="key">exitDemoMode</span>()   <span class="comment">// 清除数据，回到欢迎页</span>
+
+<span class="comment">// 配置向导步骤渲染</span>
+<span class="key">renderSetupStep</span>(step)  <span class="comment">// 1: 企业信息 → 2: 设备配置 → 3: 完成</span></div>
+    </div>
+  </div>
+
+  <!-- 开发时间线 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">10</div>
+      <h2>开发时间线</h2>
+    </div>
+    <div class="content-card">
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="time">13:14</div>
+          <div class="title">项目启动 · 审查现有 App</div>
+          <div class="desc">打开 index.html，全面审查生物质固废碳管理数据看板</div>
+        </div>
+        <div class="timeline-item">
+          <div class="time">13:30</div>
+          <div class="title">执行两项调整</div>
+          <div class="desc">原料预警卡片点击筛选 + 碳质分析非达标样品栏</div>
+        </div>
+        <div class="timeline-item">
+          <div class="time">13:45</div>
+          <div class="title">主动审查 · 18 项改进建议</div>
+          <div class="desc">从交互、数据、功能、代码四维度提出改进清单</div>
+        </div>
+        <div class="timeline-item">
+          <div class="time">14:00</div>
+          <div class="title">执行改进修改</div>
+          <div class="desc">时间切换器、动态时间线、KPI跳转、Toast、ESC交互</div>
+        </div>
+        <div class="timeline-item">
+          <div class="time">14:30</div>
+          <div class="title">生产模式设计稿（Ardot）</div>
+          <div class="desc">两屏生产模式设计，真实数据填充</div>
+        </div>
+        <div class="timeline-item">
+          <div class="time">14:45</div>
+          <div class="title">首次启动体验设计稿（Ardot）</div>
+          <div class="desc">三屏：欢迎页 + 配置向导 + 空状态仪表盘</div>
+        </div>
+        <div class="timeline-item">
+          <div class="time">15:00</div>
+          <div class="title">设计稿 → 代码还原</div>
+          <div class="desc">onboarding.html 生成，严格还原色值/圆角/间距/阴影</div>
+        </div>
+        <div class="timeline-item">
+          <div class="time">15:15</div>
+          <div class="title">空状态页面补全</div>
+          <div class="desc">8 个模块全部可点击导航，各有专属空状态和前置依赖提示</div>
+        </div>
+        <div class="timeline-item">
+          <div class="time">15:30</div>
+          <div class="title">演示模式开发</div>
+          <div class="desc">全量模拟数据，8 模块完整内容，顶栏演示徽章 + 退出</div>
+        </div>
+        <div class="timeline-item">
+          <div class="time">16:20</div>
+          <div class="title">文件整理 · 桌面部署</div>
+          <div class="desc">网站文件复制到桌面文件夹，生成开发日志</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 交付物清单 -->
+  <div class="section">
+    <div class="section-title">
+      <div class="num">11</div>
+      <h2>交付物清单</h2>
+    </div>
+    <div class="content-card">
+      <div class="file-list">
+        <div class="file-item">
+          <div class="file-icon">主</div>
+          <div class="file-info">
+            <div class="file-name">index.html</div>
+            <div class="file-desc">主应用 · 8 大模块完整功能 · 含时间切换器/动态时间线/KPI跳转/Toast/ESC 交互</div>
+          </div>
+          <div class="file-size">387 KB</div>
+        </div>
+        <div class="file-item">
+          <div class="file-icon">新</div>
+          <div class="file-info">
+            <div class="file-name">onboarding.html</div>
+            <div class="file-desc">首次启动体验 · 欢迎页 → 配置向导 → 空状态仪表盘（8 模块导航）→ 演示模式（全量数据）</div>
+          </div>
+          <div class="file-size">97 KB</div>
+        </div>
+        <div class="file-item">
+          <div class="file-icon">日</div>
+          <div class="file-info">
+            <div class="file-name">开发日志.html</div>
+            <div class="desc">本文件 · 完整开发过程记录</div>
+          </div>
+          <div class="file-size">—</div>
+        </div>
+      </div>
+      <div class="summary-box" style="margin-top:16px;">
+        <h4>Ardot 设计文件</h4>
+        <p>碳智汇-首次启动体验 · fileId: 713660987545304 · ardot.tencent.com/file/713660987545304</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  碳智汇 — 生物质固废碳管理数据看板 · 开发日志 · 2026-08-11 · AI 协作开发
+</div>
+
+</body>
+</html>
