@@ -835,6 +835,25 @@ svg { display: block; }
 .donut-legend-item strong { color:var(--c-text-1); font-weight:700; font-size:13px; }
 .donut-legend-item .pct { color:var(--c-text-3); }
 
+/* Line chart (SVG) */
+.line-chart { position:relative; width:100%; }
+.line-chart-svg { position:absolute; top:0; left:0; width:100%; height:100%; display:block; }
+.line-chart-svg .lgrid { stroke:#EEF1F5; stroke-width:1; stroke-dasharray:3 3; vector-effect:non-scaling-stroke; }
+.line-dots { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+.line-dot { position:absolute; width:9px; height:9px; margin:-4.5px 0 0 -4.5px; border-radius:50%; background:#fff; border:2px solid var(--c-primary); box-sizing:border-box; }
+.line-dot.line-dot-mark { width:12px; height:12px; margin:-6px 0 0 -6px; box-shadow:0 0 0 3px rgba(15,186,130,0.10); }
+.line-mark { position:absolute; transform:translate(-50%,-135%); font-size:10px; font-weight:700; white-space:nowrap; }
+.line-labels { position:absolute; left:0; right:0; bottom:2px; height:16px; pointer-events:none; }
+.line-label { position:absolute; transform:translateX(-50%); font-size:11px; color:var(--c-text-3); white-space:nowrap; }
+
+/* Combo chart (bars + cumulative line) */
+.combo-chart { position:relative; flex:1; display:flex; flex-direction:column; min-height:180px; }
+.combo-bars { padding-bottom:22px; }
+.combo-bars .chart-bar-group { height:100%; justify-content:flex-end; }
+.combo-line { position:absolute; left:0; right:0; top:20px; bottom:22px; z-index:2; pointer-events:none; }
+.combo-labels { position:absolute; left:0; right:0; bottom:4px; height:16px; pointer-events:none; }
+.combo-label { position:absolute; transform:translateX(-50%); font-size:11px; color:var(--c-text-3); white-space:nowrap; }
+
 /* ========== Responsive ========== */
 @media (max-width: 1200px) {
   .kpi-row { flex-wrap: wrap; }
@@ -967,8 +986,8 @@ svg { display: block; }
       <div class="setup-step" data-step="2">
         <div class="setup-step-badge">2</div>
         <div>
-          <div class="setup-step-title">设备配置</div>
-          <div class="setup-step-desc">添加反应釜设备</div>
+          <div class="setup-step-title">生产配置</div>
+          <div class="setup-step-desc">配置热解炉参数</div>
         </div>
       </div>
       <div class="setup-step" data-step="3">
@@ -1217,10 +1236,10 @@ svg { display: block; }
         <div class="reactor-card">
           <div class="card-head">
             <div class="card-head-left">
-              <div class="card-title">设备状态</div>
-              <div class="card-sub">反应釜运行监控</div>
+              <div class="card-title">热解运行状态</div>
+              <div class="card-sub">批次运行监控</div>
             </div>
-            <span class="reactor-more" onclick="showToast('设备列表为空')">查看全部</span>
+            <span class="reactor-more" onclick="showToast('暂无运行批次')">查看全部</span>
           </div>
           <div class="reactor-empty">
             <div class="reactor-empty-icon">
@@ -1230,13 +1249,13 @@ svg { display: block; }
                 <circle cx="18" cy="19" r="1"/>
               </svg>
             </div>
-            <div class="reactor-empty-text">尚未配置反应釜设备</div>
+            <div class="reactor-empty-text">尚未启动热解生产</div>
           </div>
           <button class="reactor-btn" onclick="showToast('请先完成初始化向导第 2 步')">
             <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M7 3v8M3 7h8"/>
             </svg>
-            <span>添加第一台设备</span>
+            <span>创建第一个热解批次</span>
           </button>
         </div>
       </div>
@@ -1287,7 +1306,7 @@ svg { display: block; }
                   <span class="guide-step-title">启动热解批次</span>
                   <span class="guide-step-tag-pending">待开始</span>
                 </div>
-                <div class="guide-step-desc">配置反应釜参数，开始第一批生产</div>
+                <div class="guide-step-desc">配置热解炉参数，开始第一批生产</div>
               </div>
             </div>
             <div class="guide-step-item">
@@ -1374,22 +1393,22 @@ const setupSteps = [
     ]
   },
   {
-    title: '设备配置',
-    desc: '添加反应釜设备信息，为生产监控和批次管理建立基础。',
+    title: '生产配置',
+    desc: '配置热解炉参数信息，为生产排程和批次管理建立基础。',
     fields: [
       {
         type: 'input',
-        label: '设备名称',
+        label: '炉位名称',
         required: true,
-        placeholder: '请输入设备名称（如：1# 反应釜）'
+        placeholder: '请输入炉位名称（如：1# 热解炉）'
       },
       {
         type: 'select',
-        label: '设备型号',
+        label: '炉型',
         required: true,
         value: '',
         options: ['连续式热解炉', '间歇式热解炉', '回转窑热解炉'],
-        placeholder: '请选择设备型号'
+        placeholder: '请选择炉型'
       },
       {
         type: 'input',
@@ -1712,10 +1731,10 @@ function getModuleContent(key) {
     pyrolysis: moduleEmpty('cyan',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 4L8 10v16l10 6 10-6V10L18 4z"/><path d="M18 10v14M12 14l6 3 6-3"/></svg>',
       '暂无热解批次',
-      '配置反应釜设备并启动第一个热解批次，系统将自动记录温度、产率等关键参数',
-      '启动第一个热解批次', plus, '启动批次 — 请先在初始化向导第 2 步添加反应釜设备',
-      [{ title: '批次管理', desc: '创建批次、实时监控温度压力、完成后自动结算产率和碳转化率' },
-       { title: '前置条件', desc: '需先在初始化向导第 2 步中添加反应釜设备' }]),
+      '配置热解炉参数并启动第一个热解批次，系统将自动记录温度、产率等关键参数',
+      '启动第一个热解批次', plus, '启动批次 — 请先在初始化向导第 2 步配置热解炉',
+      [{ title: '批次管理', desc: '创建批次、跟踪温度产率、完成后自动结算产率和碳转化率' },
+       { title: '前置条件', desc: '需先在初始化向导第 2 步中配置热解炉' }]),
 
     analysis: moduleEmpty('orange',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h8v6l6 18H8l6-18V4z"/><path d="M14 16h8"/></svg>',
@@ -1727,10 +1746,10 @@ function getModuleContent(key) {
 
     pollution: moduleEmpty('purple',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 4L6 10v8c0 6 5 10 12 14 7-4 12-8 12-14v-8L18 4z"/><path d="M14 18l3 3 6-6"/></svg>',
-      '暂无治理设备数据',
-      '配置尾气处理和废水治理设备，系统将实时监控排放指标是否达标',
-      '配置治理设备', plus, '配置设备 — 请先完成企业信息配置',
-      [{ title: '监控范围', desc: '尾气排放（SO₂、NOx、粉尘）、废水指标（COD、氨氮）、噪音监测' },
+      '暂无监测方案数据',
+      '配置尾气处理与废水治理监测，系统将跟踪排放指标是否达标',
+      '配置监测方案', plus, '配置监测方案 — 请先完成企业信息配置',
+      [{ title: '监测范围', desc: '尾气排放（SO₂、NOx、粉尘）、废水指标（COD、氨氮）、噪音监测' },
        { title: '合规提醒', desc: '指标超标自动预警，生成合规报告供环保检查使用' }]),
 
     carbonsink: moduleEmpty('orange',
@@ -1801,14 +1820,106 @@ function _table(title, sub, headers, rows) {
   return h + '</tbody></table></div>';
 }
 
+/* ========== Line Chart Helper (pure SVG polyline/path, no external libs) ========== */
+var _lineChartUid = 0;
+function _lineChart(points, opts) {
+  opts = opts || {};
+  var n = points.length;
+  if (!n) return '';
+  var uid = 'lc' + (++_lineChartUid);
+  var color = opts.color || '#0FBA82';
+  var height = opts.height || 160;
+  var align = opts.align || 'edge'; // 'edge' | 'bar'
+  var padX = (opts.padX !== undefined) ? opts.padX : 3;
+  var padY = (opts.padY !== undefined) ? opts.padY : 4;
+  var min = (opts.min !== undefined) ? opts.min : 0;
+  var max = (opts.max !== undefined) ? opts.max : 0;
+  if (opts.max === undefined) {
+    for (var mi = 0; mi < n; mi++) { if (points[mi].v > max) max = points[mi].v; }
+  }
+  if (min === max) max = min + 1;
+  var range = max - min;
+  var w = 100, h = 40;
+  var innerW = w - padX * 2;
+  var innerH = h - padY * 2;
+  var xs = [], ys = [], ptsStr = '', i;
+  for (i = 0; i < n; i++) {
+    var x;
+    if (align === 'bar') {
+      x = (n === 1) ? 50 : (i + 0.5) / n * 100;
+    } else {
+      x = padX + (n === 1 ? innerW / 2 : i / (n - 1) * innerW);
+    }
+    var y = padY + (1 - (points[i].v - min) / range) * innerH;
+    xs.push(x); ys.push(y);
+    ptsStr += (i === 0 ? '' : ' ') + x.toFixed(2) + ',' + y.toFixed(2);
+  }
+  var baseY = h - padY + 2;
+  var html = '<svg class="line-chart-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">';
+  if (opts.fill !== false) {
+    html += '<defs><linearGradient id="' + uid + '" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.22"/>'
+      + '<stop offset="100%" stop-color="' + color + '" stop-opacity="0.02"/>'
+      + '</linearGradient></defs>';
+  }
+  if (opts.grid !== false) {
+    var gridCount = opts.gridCount || 4;
+    for (i = 0; i <= gridCount; i++) {
+      var gy = (padY + i / gridCount * innerH).toFixed(2);
+      html += '<line class="lgrid" x1="0" y1="' + gy + '" x2="100" y2="' + gy + '"/>';
+    }
+  }
+  if (opts.fill !== false) {
+    html += '<path d="M' + xs[0].toFixed(2) + ',' + baseY.toFixed(2) + ' L' + ptsStr.replace(/ /g, ' L') + ' L' + xs[n - 1].toFixed(2) + ',' + baseY.toFixed(2) + ' Z" fill="url(#' + uid + ')"/>';
+  }
+  html += '<polyline class="line-chart-line" points="' + ptsStr + '" fill="none" stroke="' + color + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>';
+  html += '</svg>';
+  if (opts.dots !== false) {
+    html += '<div class="line-dots">';
+    for (i = 0; i < n; i++) {
+      var isMark = false, markColor = '', markLabel = '';
+      if (opts.marks) {
+        for (var mi2 = 0; mi2 < opts.marks.length; mi2++) {
+          if (opts.marks[mi2].i === i) {
+            isMark = true;
+            markColor = opts.marks[mi2].color || color;
+            markLabel = opts.marks[mi2].label || '';
+            break;
+          }
+        }
+      }
+      var dotX = (xs[i] / w * 100).toFixed(2);
+      var dotY = (ys[i] / h * 100).toFixed(2);
+      var dotStyle = 'left:' + dotX + '%;top:' + dotY + '%;border-color:' + (isMark ? markColor : color);
+      html += '<span class="line-dot' + (isMark ? ' line-dot-mark' : '') + '" style="' + dotStyle + '"></span>';
+      if (isMark && markLabel) {
+        html += '<span class="line-mark" style="left:' + dotX + '%;top:' + dotY + '%;color:' + markColor + '">' + markLabel + '</span>';
+      }
+    }
+    html += '</div>';
+  }
+  if (opts.labels !== false) {
+    var labelStep = opts.labelStep || 1;
+    html += '<div class="line-labels">';
+    for (i = 0; i < n; i++) {
+      if (i % labelStep === 0 || i === n - 1) {
+        var lx = (xs[i] / w * 100).toFixed(2);
+        html += '<span class="line-label" style="left:' + lx + '%">' + (points[i].l || '') + '</span>';
+      }
+    }
+    html += '</div>';
+  }
+  return '<div class="line-chart" style="height:' + height + (typeof height === 'number' ? 'px' : '') + '">' + html + '</div>';
+}
+
 function _overviewRangeData(range) {
   if (range === 'today') {
     return {
-      bannerDesc: '今日已完成 3 个热解批次，原料库存充足，设备运行正常',
+      bannerDesc: '今日已完成 3 个热解批次，原料库存充足，生产运行正常',
       bannerStats: [
         {v:'18.5', u:' 吨', l:'今日产量'},
         {v:'52', u:' tCO₂e', l:'今日减排'},
-        {v:'2/3', u:'', l:'设备运行'}
+        {v:'2/3', u:'', l:'运行批次'}
       ],
       kpis: [
         {label:'原料库存总量', ic:_ic.box, c:'green', v:'1,248', u:'吨', trend:'+3.1%', trendDir:'up', sub:'今日入库 12.5 吨'},
@@ -1856,7 +1967,7 @@ function _overviewRangeData(range) {
         {dot:'green', tag:'green', tagText:'热解', event:'热解批次 #B0811-03 完成，产率 42.3%', time:'8/11 14:32'},
         {dot:'orange', tag:'orange', tagText:'质检', event:'质检报告 QR-0810-02 已上传，碳含量 78.2%', time:'8/10 11:20'},
         {dot:'cyan', tag:'cyan', tagText:'入库', event:'原料入库 · 牛粪 18 吨', time:'8/09 15:40'},
-        {dot:'gray', tag:'green', tagText:'设备', event:'3# 反应釜 完成检修，恢复待机', time:'8/07 16:30'},
+        {dot:'gray', tag:'green', tagText:'生产', event:'3# 热解炉 完成本批次，进入待机', time:'8/07 16:30'},
         {dot:'purple', tag:'purple', tagText:'交易', event:'CCER 买入 100 tCO₂e @ ¥62/t', time:'8/05 10:15'},
         {dot:'green', tag:'green', tagText:'热解', event:'热解批次 #B0801-01 完成，产率 41.0%', time:'8/01 09:00'},
         {dot:'orange', tag:'orange', tagText:'质检', event:'质检报告 QR-0728-02 已上传，碳含量 76.0%', time:'7/28 16:00'},
@@ -1868,11 +1979,11 @@ function _overviewRangeData(range) {
   }
   // default: 7d
   return {
-    bannerDesc: '本周已完成 24 个热解批次，原料库存充足，设备运行正常',
+    bannerDesc: '本周已完成 24 个热解批次，原料库存充足，生产运行正常',
     bannerStats: [
       {v:'128', u:' 吨', l:'本周产量'},
       {v:'355', u:' tCO₂e', l:'本周减排'},
-      {v:'2/3', u:'', l:'设备运行'}
+      {v:'2/3', u:'', l:'运行批次'}
     ],
     kpis: [
       {label:'原料库存总量', ic:_ic.box, c:'green', v:'1,248', u:'吨', trend:'+5.6%', trendDir:'up', sub:'本周入库 96 吨'},
@@ -1893,7 +2004,7 @@ function _overviewRangeData(range) {
       {dot:'orange', tag:'orange', tagText:'质检', event:'质检报告 QR-0810-02 已上传，碳含量 78.2%', time:'8/10 11:20'},
       {dot:'cyan', tag:'cyan', tagText:'入库', event:'原料入库 · 牛粪 18 吨', time:'8/09 15:40'},
       {dot:'green', tag:'green', tagText:'热解', event:'热解批次 #B0810-05 完成，产率 43.2%', time:'8/08 10:05'},
-      {dot:'gray', tag:'green', tagText:'设备', event:'3# 反应釜 进入待机状态', time:'8/07 16:30'},
+      {dot:'gray', tag:'green', tagText:'调度', event:'原料调度完成 · 新批次排产', time:'8/07 16:30'},
       {dot:'orange', tag:'orange', tagText:'质检', event:'质检报告 QR-0809-01 已上传，碳含量 77.1%', time:'8/05 14:00'}
     ],
     tlBadge: '7 天 7 条'
@@ -1909,13 +2020,23 @@ function getDemoOverview(range) {
     return '<div class="kpi-card"><div class="kpi-head"><span class="kpi-label">' + k.label + '</span><div class="kpi-icon ' + k.c + '">' + k.ic + '</div></div><div class="kpi-value-row"><span class="kpi-value">' + k.v + '</span><span class="kpi-unit">' + k.u + '</span></div><div><span class="kpi-trend ' + k.trendDir + '">' + _up + k.trend + '</span><span class="kpi-sub">  ' + k.sub + '</span></div></div>';
   }).join('') + '</div>';
 
-  // Bar chart
+  // Combo chart: bars (per-period reduction) + cumulative line
   var maxV = 1;
   for (var bi = 0; bi < d.bars.length; bi++) { if (d.bars[bi].v > maxV) maxV = d.bars[bi].v; }
-  var barHtml = '<div class="chart-bars">' + d.bars.map(function(b) {
-    var pct = Math.round(b.v / maxV * 100);
-    return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div><span class="chart-bar-label">' + b.l + '</span></div>';
+  var cum = 0;
+  var cumPoints = [];
+  for (var ci = 0; ci < d.bars.length; ci++) { cum += d.bars[ci].v; cumPoints.push({v: cum, l: d.bars[ci].l}); }
+  var nBars = d.bars.length;
+  var comboBarHtml = '<div class="chart-bars combo-bars">' + d.bars.map(function(b) {
+    var pct = Math.round(b.v / maxV * 84);
+    return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div></div>';
   }).join('') + '</div>';
+  var comboLineHtml = '<div class="combo-line">' + _lineChart(cumPoints, {color:'#05B5D4', height:'100%', align:'bar', labels:false, grid:false, padY:3}) + '</div>';
+  var comboLabelsHtml = '<div class="combo-labels">' + d.bars.map(function(b, i) {
+    var lx = ((i + 0.5) / nBars * 100).toFixed(2);
+    return '<span class="combo-label" style="left:' + lx + '%">' + b.l + '</span>';
+  }).join('') + '</div>';
+  var barHtml = '<div class="combo-chart">' + comboBarHtml + comboLineHtml + comboLabelsHtml + '</div>';
 
   // Time switcher
   var tsHtml = '<div class="time-switcher">'
@@ -1926,9 +2047,9 @@ function getDemoOverview(range) {
 
   // Reactors
   var reactors = [
-    {name:'1# 反应釜', status:'running', temp:'520°C', mat:'玉米秸秆'},
-    {name:'2# 反应釜', status:'running', temp:'480°C', mat:'牛粪'},
-    {name:'3# 反应釜', status:'idle', temp:'—', mat:'待机'}
+    {name:'1# 热解炉', status:'running', temp:'520°C', mat:'玉米秸秆'},
+    {name:'2# 热解炉', status:'running', temp:'480°C', mat:'牛粪'},
+    {name:'3# 热解炉', status:'idle', temp:'—', mat:'待机'}
   ];
   var reactorHtml = '<div class="reactor-list">' + reactors.map(function(r) {
     return '<div class="reactor-item"><div class="reactor-dot ' + r.status + '"></div><div class="reactor-info"><div class="reactor-name">' + r.name + '</div><div class="reactor-meta">' + (r.status === 'running' ? '运行中 · ' + r.mat : '待机中') + '</div></div><div class="reactor-temp' + (r.status === 'idle' ? ' idle' : '') + '">' + r.temp + '</div></div>';
@@ -1944,7 +2065,7 @@ function getDemoOverview(range) {
     {label:'本月批次', value:'48', unit:'个'},
     {label:'达标率', value:'87.5', unit:'%'},
     {label:'平均产率', value:'41.8', unit:'%'},
-    {label:'设备利用率', value:'78', unit:'%'}
+    {label:'产能利用率', value:'78', unit:'%'}
   ];
   var sysHtml = '<div class="guide-card"><div class="guide-head"><span class="guide-badge">系统概览</span><div class="guide-title">本月运行数据</div><div class="guide-sub">2026 年 8 月</div></div><div class="guide-step-list">' + sysStats.map(function(s) {
     return '<div class="guide-step-item active" style="justify-content:space-between"><div class="guide-step-content"><div class="guide-step-row"><span class="guide-step-title">' + s.label + '</span></div></div><div style="font-size:20px;font-weight:700;color:var(--c-green-deep)">' + s.value + '<span style="font-size:12px;font-weight:500;color:var(--c-text-3)">' + s.unit + '</span></div></div>';
@@ -1961,7 +2082,7 @@ function getDemoOverview(range) {
     // KPIs
     kpiHtml +
     // Main row: chart + reactors
-    '<div class="main-row"><div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">减排趋势</div><div class="card-sub">' + d.chartSub + '</div></div>' + tsHtml + '</div><div class="chart-area">' + barHtml + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>' + d.legendDot + '</span><span>' + d.legend + '</span></div></div></div><div class="reactor-card"><div class="card-head"><div class="card-head-left"><div class="card-title">设备状态</div><div class="card-sub">反应釜运行监控</div></div><span class="reactor-more" onclick="showToast(\'共 3 台设备\')">查看全部</span></div>' + reactorHtml + '</div></div>' +
+    '<div class="main-row"><div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">减排趋势</div><div class="card-sub">' + d.chartSub + '</div></div>' + tsHtml + '</div><div class="chart-area">' + barHtml + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>' + d.legendDot + '</span><span><span class="chart-legend-dot" style="background:var(--c-cyan);border-radius:50%"></span>累计减排趋势</span><span>' + d.legend + '</span></div></div></div><div class="reactor-card"><div class="card-head"><div class="card-head-left"><div class="card-title">热解运行状态</div><div class="card-sub">批次运行监控</div></div><span class="reactor-more" onclick="showToast(\'共 3 个炉位\')">查看全部</span></div>' + reactorHtml + '</div></div>' +
     // Bottom row: timeline + system status
     '<div class="bottom-row"><div class="timeline-card"><div class="card-head"><div class="card-head-left"><div class="card-title">最新动态</div><div class="card-sub">系统事件时间线</div></div><span class="tl-badge">' + d.tlBadge + '</span></div>' + tlHtml + '</div>' + sysHtml + '</div>' +
     '</div>';
@@ -2005,15 +2126,11 @@ function getDemoModule(key) {
       {v:39.0, l:'8/5'}, {v:40.5, l:'8/6'}, {v:41.0, l:'8/7'}, {v:41.8, l:'8/8'},
       {v:42.5, l:'8/9'}, {v:43.2, l:'8/10'}, {v:44.6, l:'8/11'}
     ];
-    var pyMax = 44.6;
-    var pyBarHtml = '<div class="chart-bars" style="min-height:150px">' + pyBars.map(function(b) {
-      var pct = Math.round(b.v / pyMax * 100);
-      return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v.toFixed(1) + '</span><div class="chart-bar" style="height:' + pct + '%"></div><span class="chart-bar-label">' + b.l + '</span></div>';
-    }).join('') + '</div>';
-    var pyChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">近 7 批次产率</div><div class="card-sub">已完成批次生物炭产率（%）</div></div></div><div class="chart-area">' + pyBarHtml + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>批次产率</span><span>7 批次均值：41.8%</span></div></div></div>';
+    var pyLineHtml = _lineChart(pyBars, {color:'#0FBA82', height:150, min:38, max:46, marks:[{i:6, color:'var(--c-orange)', label:'44.6%'}]});
+    var pyChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">近 7 批次产率</div><div class="card-sub">已完成批次生物炭产率（%）</div></div></div><div class="chart-area">' + pyLineHtml + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary);border-radius:50%"></span>批次产率趋势</span><span>7 批次均值：41.8%</span></div></div></div>';
     return _statRow([
       {label:'总批次', v:'48', u:'个', c:'green', ic:_ic.fire},
-      {label:'运行中', v:'2', u:'台', c:'cyan', ic:_ic.bolt, s:'1# 520°C · 2# 480°C'},
+      {label:'运行中', v:'2', u:'个批次', c:'cyan', ic:_ic.bolt, s:'1# 炉 520°C · 2# 炉 480°C'},
       {label:'平均产率', v:'41.8', u:'%', c:'orange', ic:_ic.trend, s:'较上月 +2.1%'},
       {label:'累计产量', v:'386', u:'吨', c:'purple', ic:_ic.box}
     ]) + pyChart + _table('热解批次记录', '最近 6 个批次', [
@@ -2107,7 +2224,7 @@ function getDemoModule(key) {
     return _statRow([
       {label:'尾气达标率', v:'98.5', u:'%', c:'green', ic:_ic.shield},
       {label:'废水达标率', v:'100', u:'%', c:'cyan', ic:_ic.check},
-      {label:'在线设备', v:'6', u:'台', c:'orange', ic:_ic.gauge, s:'全部正常运行'},
+      {label:'监测指标', v:'6', u:'项', c:'orange', ic:_ic.gauge, s:'全部达标'},
       {label:'本月预警', v:'2', u:'次', c:'purple', ic:_ic.alert, s:'已自动恢复'}
     ]) + monChart + '<div class="module-page" style="gap:16px">' + monitorHtml + '</div>';
   }
@@ -2118,32 +2235,48 @@ function getDemoModule(key) {
       {m:'7月', v:125}, {m:'8月', v:186}
     ];
     var maxM = 186;
-    var monthBars = '<div class="chart-bars" style="min-height:140px">' + months.map(function(b) {
-      var pct = Math.round(b.v / maxM * 100);
-      return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div><span class="chart-bar-label">' + b.m + '</span></div>';
-    }).join('') + '</div>';
+    var cumM = 0, cumMPoints = [];
+    for (var cmi = 0; cmi < months.length; cmi++) { cumM += months[cmi].v; cumMPoints.push({v: cumM, l: months[cmi].m}); }
+    var nM = months.length;
+    var monthBars = '<div class="combo-chart">'
+      + '<div class="chart-bars combo-bars">' + months.map(function(b) {
+        var pct = Math.round(b.v / maxM * 84);
+        return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div></div>';
+      }).join('') + '</div>'
+      + '<div class="combo-line">' + _lineChart(cumMPoints, {color:'#05B5D4', height:'100%', align:'bar', labels:false, grid:false, padY:3}) + '</div>'
+      + '<div class="combo-labels">' + months.map(function(b, i) {
+        var lx = ((i + 0.5) / nM * 100).toFixed(2);
+        return '<span class="combo-label" style="left:' + lx + '%">' + b.m + '</span>';
+      }).join('') + '</div>'
+      + '</div>';
     return _statRow([
       {label:'累计减排量', v:'1,052', u:'tCO₂e', c:'green', ic:_ic.leaf},
       {label:'本月减排', v:'186', u:'tCO₂e', c:'cyan', ic:_ic.trend, s:'较上月 +48.8%'},
       {label:'核算方法', v:'IPCC', c:'orange', ic:_ic.scale, s:'AR5 GWP-100'},
       {label:'待审核', v:'0', u:'项', c:'purple', ic:_ic.check, s:'全部已审核'}
-    ]) + '<div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">月度减排趋势</div><div class="card-sub">2026 年 3 月 — 8 月（tCO₂e）</div></div></div><div class="chart-area">' + monthBars + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>月减排量（tCO₂e）</span><span>6 个月累计：666 tCO₂e</span></div></div></div>';
+    ]) + '<div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">月度减排趋势</div><div class="card-sub">2026 年 3 月 — 8 月（tCO₂e）</div></div></div><div class="chart-area">' + monthBars + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>月减排量（tCO₂e）</span><span><span class="chart-legend-dot" style="background:var(--c-cyan);border-radius:50%"></span>累计减排趋势</span><span>6 个月累计：666 tCO₂e</span></div></div></div>';
   }
 
   if (key === 'trading') {
     var prices = [55,58,56,61,60,63,65,62,64,67,65,68,65,66];
-    var maxP = 68;
-    var priceBars = '<div class="price-trend">' + prices.map(function(p) {
-      var pct = Math.round(p / maxP * 100);
-      var cls = p >= 65 ? ' peak' : '';
-      return '<div class="price-trend-bar' + cls + '" style="height:' + pct + '%"></div>';
-    }).join('') + '</div>';
+    var priceLabels = ['7/29','7/30','7/31','8/1','8/2','8/3','8/4','8/5','8/6','8/7','8/8','8/9','8/10','8/11'];
+    var pricePoints = [];
+    for (var tpi = 0; tpi < prices.length; tpi++) { pricePoints.push({v: prices[tpi], l: priceLabels[tpi]}); }
+    var tMinIdx = 0, tMaxIdx = 0;
+    for (var ti = 0; ti < prices.length; ti++) {
+      if (prices[ti] < prices[tMinIdx]) tMinIdx = ti;
+      if (prices[ti] > prices[tMaxIdx]) tMaxIdx = ti;
+    }
+    var priceLine = _lineChart(pricePoints, {color:'#0FBA82', height:'100%', min:48, max:72, labelStep:2, marks:[
+      {i: tMaxIdx, color:'var(--c-orange)', label:'¥68'},
+      {i: tMinIdx, color:'var(--c-cyan)', label:'¥55'}
+    ]});
     return _statRow([
       {label:'当前价格', v:'¥65', u:'/tCO₂e', c:'green', ic:_ic.coin, s:'较昨日 +2.1%'},
       {label:'持仓量', v:'820', u:'tCO₂e', c:'cyan', ic:_ic.box},
       {label:'累计成交', v:'1,052', u:'tCO₂e', c:'orange', ic:_ic.trend},
       {label:'累计收益', v:'¥68,200', c:'purple', ic:_ic.coin, s:'平均成交价 ¥64.8'}
-    ]) + '<div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">CCER 价格走势</div><div class="card-sub">近 14 个交易日（元/tCO₂e）</div></div><div style="font-size:20px;font-weight:700;color:var(--c-primary)">¥65</div></div><div class="chart-area">' + priceBars + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>日成交价</span><span>区间 ¥55 — ¥68</span></div></div></div>' + _table('近期交易记录', '最近 4 笔交易', [
+    ]) + '<div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">CCER 价格走势</div><div class="card-sub">近 14 个交易日（元/tCO₂e）</div></div><div style="font-size:20px;font-weight:700;color:var(--c-primary)">¥65</div></div><div class="chart-area">' + priceLine + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary);border-radius:50%"></span>日成交价</span><span><span class="chart-legend-dot" style="background:var(--c-orange);border-radius:50%"></span>区间高点</span><span><span class="chart-legend-dot" style="background:var(--c-cyan);border-radius:50%"></span>区间低点</span><span>区间 ¥55 — ¥68</span></div></div></div>' + _table('近期交易记录', '最近 4 笔交易', [
       {t:'交易时间'},{t:'类型'},{t:'数量(tCO₂e)',n:true},{t:'单价(元)',n:true},{t:'金额(元)',n:true},{t:'状态'}
     ], [
       ['08-11 09:45','<span class="tag info">卖出</span>','50','65','3,250','<span class="tag success">已成交</span>'],
@@ -2155,9 +2288,9 @@ function getDemoModule(key) {
 
   if (key === 'ai') {
     var suggestions = [
-      {c:'green', ic:_ic.fire, title:'热解温度优化建议', desc:'基于近 48 个批次数据分析，玉米秸秆在 525°C 时平均产率最高（43.2%），建议将 1# 反应釜温度从 520°C 上调 5°C。', metas:[{l:'预期产率提升', v:'+1.8%'},{l:'预计月增收', v:'¥4,200'}]},
+      {c:'green', ic:_ic.fire, title:'热解温度优化建议', desc:'基于近 48 个批次数据分析，玉米秸秆在 525°C 时平均产率最高（43.2%），建议将 1# 热解炉温度从 520°C 上调 5°C。', metas:[{l:'预期产率提升', v:'+1.8%'},{l:'预计月增收', v:'¥4,200'}]},
       {c:'cyan', ic:_ic.scale, title:'原料配比优化', desc:'AI 分析发现玉米秸秆与牛粪按 6:4 混合热解时，碳含量比单一原料高 3.5%。建议增加混合批次比例。', metas:[{l:'碳含量提升', v:'+3.5%'},{l:'推荐配比', v:'6:4'}]},
-      {c:'orange', ic:_ic.bolt, title:'能耗降低方案', desc:'3# 反应釜在待机时仍消耗 15% 额定功率。建议安排批次时减少空转时间，预计每月可节省电费 ¥1,800。', metas:[{l:'预计节能', v:'12%'},{l:'月省电费', v:'¥1,800'}]}
+      {c:'orange', ic:_ic.bolt, title:'能耗降低方案', desc:'3# 热解炉在待机时仍消耗 15% 额定功率。建议安排批次时减少空转时间，预计每月可节省电费 ¥1,800。', metas:[{l:'预计节能', v:'12%'},{l:'月省电费', v:'¥1,800'}]}
     ];
     var suggHtml = '<div class="suggestion-list">' + suggestions.map(function(s) {
       return '<div class="suggestion-card"><div class="suggestion-icon ' + s.c + '">' + s.ic + '</div><div class="suggestion-body"><div class="suggestion-title">' + s.title + '</div><div class="suggestion-desc">' + s.desc + '</div><div class="suggestion-meta">' + s.metas.map(function(m) {
