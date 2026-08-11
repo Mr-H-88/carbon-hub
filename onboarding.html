@@ -514,7 +514,7 @@ svg { display: block; }
 /* Bottom Row */
 .bottom-row { display: flex; gap: 16px; }
 .timeline-card {
-  flex: 1; background: var(--c-white);
+  flex: 1; width: 100%; background: var(--c-white); /* full width: guide card moved to top */
   border: 1px solid var(--c-border);
   border-radius: 12px;
   padding: 24px;
@@ -692,6 +692,82 @@ svg { display: block; }
 .guide-card--onboarding .guide-step-item[data-key]:hover {
   border-color: var(--c-primary);
   box-shadow: 0 2px 10px rgba(15, 186, 130, 0.16);
+}
+
+/* ========== Onboarding Guide: Full-Width Horizontal Step Bar ========== */
+/* Scoped ONLY to the empty-state onboarding card (.guide-card--onboarding).
+   The demo-mode 系统概览 card (.guide-card only) keeps its original vertical
+   layout and 460px width — none of the rules below touch it. */
+.guide-card--onboarding {
+  width: 100%;
+  padding: 24px 26px;
+}
+/* Header: badge + title on one row, subtitle below, subtle dashed divider */
+.guide-card--onboarding .guide-head {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px dashed rgba(15, 186, 130, 0.28);
+}
+.guide-card--onboarding .guide-head .guide-badge { order: 0; align-self: center; }
+.guide-card--onboarding .guide-head .guide-title { order: 1; }
+.guide-card--onboarding .guide-head .guide-sub { order: 2; width: 100%; }
+
+/* 4 steps laid out horizontally (1 → 2 → 3 → 4) with dashed connector + arrowhead */
+.guide-card--onboarding .guide-step-list {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 20px;
+}
+.guide-card--onboarding .guide-step-item {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 14px 14px 12px;
+}
+.guide-card--onboarding .guide-step-content {
+  width: 100%;
+  flex: 1;
+  gap: 4px;
+}
+.guide-card--onboarding .guide-step-arrow {
+  align-self: flex-end;
+  margin-top: auto;
+}
+/* dashed line between steps */
+.guide-card--onboarding .guide-step-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -20px;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, rgba(15, 186, 130, 0.55) 0 4px, transparent 4px 8px);
+  pointer-events: none;
+}
+/* arrowhead at the end of each connector */
+.guide-card--onboarding .guide-step-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -9px;
+  transform: translateY(-50%) rotate(45deg);
+  width: 7px;
+  height: 7px;
+  border-top: 2px solid rgba(15, 186, 130, 0.55);
+  border-right: 2px solid rgba(15, 186, 130, 0.55);
+  background: transparent;
+  z-index: 2;
+  pointer-events: none;
 }
 
 /* ========== Module Pages ========== */
@@ -959,6 +1035,14 @@ svg { display: block; }
   .reactor-card { width: 100%; }
   .bottom-row { flex-direction: column; }
   .guide-card { width: 100%; }
+  /* Onboarding guide: fall back to 2×2 grid on medium screens (connectors hidden) */
+  .guide-card--onboarding .guide-step-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .guide-card--onboarding .guide-step-item:not(:last-child)::before,
+  .guide-card--onboarding .guide-step-item:not(:last-child)::after { display: none; }
 }
 @media (max-width: 768px) {
   .app-sidebar { display: none; }
@@ -969,6 +1053,7 @@ svg { display: block; }
   .setup-main { padding: 24px; }
   .setup-form-card { padding: 24px; }
   .dashboard-search { width: 140px; }
+  .guide-card--onboarding .guide-step-list { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -1239,6 +1324,61 @@ svg { display: block; }
         </button>
       </div>
 
+      <!-- Onboarding Guide: Full-Width Horizontal Step Bar (most prominent, directly below welcome banner) -->
+      <div class="guide-card guide-card--onboarding">
+        <div class="guide-head">
+          <span class="guide-badge"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5c1 2 2.2 3.2 4.2 4.2-2 1-3.2 2.2-4.2 4.2-1-2-2.2-3.2-4.2-4.2 2-1 3.2-2.2 4.2-4.2Z"/><path d="M13.5 10.5c.4.8.9 1.3 1.7 1.7-.8.4-1.3.9-1.7 1.7-.4-.8-.9-1.3-1.7-1.7.8-.4 1.3-.9 1.7-1.7Z"/></svg>新手引导  ·  4 步</span>
+          <div class="guide-title">完成初始化，开启碳管理</div>
+          <div class="guide-sub">推荐按顺序完成，约需 15 分钟</div>
+        </div>
+        <div class="guide-step-list">
+          <div class="guide-step-item active" data-key="materials" onclick="gotoGuideStep('materials')" title="点击前往原料管理">
+            <div class="guide-step-badge">1</div>
+            <div class="guide-step-content">
+              <div class="guide-step-row">
+                <span class="guide-step-title">录入第一批原料</span>
+                <span class="guide-step-tag-active">进行中</span>
+              </div>
+              <div class="guide-step-desc">前往【原料管理】添加供应商，并录入首批入库原料</div>
+            </div>
+            <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
+          </div>
+          <div class="guide-step-item" data-key="pyrolysis" onclick="gotoGuideStep('pyrolysis')" title="点击前往热解制备">
+            <div class="guide-step-badge">2</div>
+            <div class="guide-step-content">
+              <div class="guide-step-row">
+                <span class="guide-step-title">启动热解批次</span>
+                <span class="guide-step-tag-pending">待开始</span>
+              </div>
+              <div class="guide-step-desc">前往【热解制备】配置热解炉，并启动第一个批次</div>
+            </div>
+            <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
+          </div>
+          <div class="guide-step-item" data-key="analysis" onclick="gotoGuideStep('analysis')" title="点击前往碳质分析">
+            <div class="guide-step-badge">3</div>
+            <div class="guide-step-content">
+              <div class="guide-step-row">
+                <span class="guide-step-title">录入碳核算数据</span>
+                <span class="guide-step-tag-pending">待开始</span>
+              </div>
+              <div class="guide-step-desc">前往【碳质分析】上传质检报告，系统自动核算碳汇</div>
+            </div>
+            <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
+          </div>
+          <div class="guide-step-item" data-key="trading" onclick="gotoGuideStep('trading')" title="点击前往碳交易市场">
+            <div class="guide-step-badge">4</div>
+            <div class="guide-step-content">
+              <div class="guide-step-row">
+                <span class="guide-step-title">关联碳交易账户</span>
+                <span class="guide-step-tag-optional">可选</span>
+              </div>
+              <div class="guide-step-desc">前往【碳交易市场】关联 CCER 账户并查看交易行情</div>
+            </div>
+            <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
+          </div>
+        </div>
+      </div>
+
       <!-- KPI Row -->
       <div class="kpi-row">
         <div class="kpi-card">
@@ -1357,7 +1497,7 @@ svg { display: block; }
         </div>
       </div>
 
-      <!-- Bottom Row: Timeline + Guide -->
+      <!-- Bottom Row: Timeline -->
       <div class="bottom-row">
         <div class="timeline-card">
           <div class="card-head">
@@ -1376,60 +1516,6 @@ svg { display: block; }
             </div>
             <div class="tl-empty-title">暂无系统动态</div>
             <div class="tl-empty-hint">开始使用后，原料入库、热解批次、碳交易等事件将自动汇总到这里</div>
-          </div>
-        </div>
-
-        <div class="guide-card guide-card--onboarding">
-          <div class="guide-head">
-            <span class="guide-badge"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5c1 2 2.2 3.2 4.2 4.2-2 1-3.2 2.2-4.2 4.2-1-2-2.2-3.2-4.2-4.2 2-1 3.2-2.2 4.2-4.2Z"/><path d="M13.5 10.5c.4.8.9 1.3 1.7 1.7-.8.4-1.3.9-1.7 1.7-.4-.8-.9-1.3-1.7-1.7.8-.4 1.3-.9 1.7-1.7Z"/></svg>新手引导  ·  4 步</span>
-            <div class="guide-title">完成初始化，开启碳管理</div>
-            <div class="guide-sub">推荐按顺序完成，约需 15 分钟</div>
-          </div>
-          <div class="guide-step-list">
-            <div class="guide-step-item active" data-key="materials" onclick="gotoGuideStep('materials')" title="点击前往原料管理">
-              <div class="guide-step-badge">1</div>
-              <div class="guide-step-content">
-                <div class="guide-step-row">
-                  <span class="guide-step-title">录入第一批原料</span>
-                  <span class="guide-step-tag-active">进行中</span>
-                </div>
-                <div class="guide-step-desc">前往【原料管理】添加供应商，并录入首批入库原料</div>
-              </div>
-              <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
-            </div>
-            <div class="guide-step-item" data-key="pyrolysis" onclick="gotoGuideStep('pyrolysis')" title="点击前往热解制备">
-              <div class="guide-step-badge">2</div>
-              <div class="guide-step-content">
-                <div class="guide-step-row">
-                  <span class="guide-step-title">启动热解批次</span>
-                  <span class="guide-step-tag-pending">待开始</span>
-                </div>
-                <div class="guide-step-desc">前往【热解制备】配置热解炉，并启动第一个批次</div>
-              </div>
-              <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
-            </div>
-            <div class="guide-step-item" data-key="analysis" onclick="gotoGuideStep('analysis')" title="点击前往碳质分析">
-              <div class="guide-step-badge">3</div>
-              <div class="guide-step-content">
-                <div class="guide-step-row">
-                  <span class="guide-step-title">录入碳核算数据</span>
-                  <span class="guide-step-tag-pending">待开始</span>
-                </div>
-                <div class="guide-step-desc">前往【碳质分析】上传质检报告，系统自动核算碳汇</div>
-              </div>
-              <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
-            </div>
-            <div class="guide-step-item" data-key="trading" onclick="gotoGuideStep('trading')" title="点击前往碳交易市场">
-              <div class="guide-step-badge">4</div>
-              <div class="guide-step-content">
-                <div class="guide-step-row">
-                  <span class="guide-step-title">关联碳交易账户</span>
-                  <span class="guide-step-tag-optional">可选</span>
-                </div>
-                <div class="guide-step-desc">前往【碳交易市场】关联 CCER 账户并查看交易行情</div>
-              </div>
-              <div class="guide-step-arrow"><span>去完成</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>
-            </div>
           </div>
         </div>
       </div>
