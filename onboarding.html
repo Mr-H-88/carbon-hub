@@ -1465,7 +1465,7 @@ svg { display: block; }
 
       <!-- KPI Row -->
       <div class="kpi-row">
-        <div class="kpi-card">
+        <div class="kpi-card" id="kpi-materials">
           <div class="kpi-head">
             <span class="kpi-label">原料库存总量</span>
             <div class="kpi-icon green">
@@ -1480,7 +1480,7 @@ svg { display: block; }
             <span class="kpi-hint">暂无数据，请在【原料管理】录入</span>
           </div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" id="kpi-pyrolysis">
           <div class="kpi-head">
             <span class="kpi-label">生物炭产量</span>
             <div class="kpi-icon cyan">
@@ -1495,7 +1495,7 @@ svg { display: block; }
             <span class="kpi-hint">暂无数据，请在【热解制备】录入</span>
           </div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" id="kpi-carbonsink">
           <div class="kpi-head">
             <span class="kpi-label">累计碳汇核算</span>
             <div class="kpi-icon orange">
@@ -1511,7 +1511,7 @@ svg { display: block; }
             <span class="kpi-hint">暂无数据，请在【碳汇核算】录入</span>
           </div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" id="kpi-trading">
           <div class="kpi-head">
             <span class="kpi-label">CCER 收益</span>
             <div class="kpi-icon purple">
@@ -2021,6 +2021,34 @@ function hideDemoBadge() {
   if (slot) slot.innerHTML = '';
 }
 
+/* ========== 总览 KPI 联动（非演示模式，基于用户录入数据） ========== */
+function refreshOverviewKPI() {
+  var ed = window.entryData || { materials: [], pyrolysis: [], analysis: [], carbonsink: [], trading: [] };
+  var matTotal = sumRecords(ed.materials || [], '库存量（吨）');
+  var batchCount = (ed.pyrolysis || []).length;
+  var sinkTotal = sumRecords(ed.carbonsink || [], '减排量（tCO₂e）');
+  var tradeAmount = sumAmount(ed.trading || []);
+
+  var kpis = [
+    { id: 'kpi-materials', has: (ed.materials || []).length > 0, v: matTotal + ' 吨', hint: (ed.materials || []).length + ' 种原料，已录入库存' },
+    { id: 'kpi-pyrolysis', has: batchCount > 0, v: batchCount + ' 个', hint: '已录入 ' + batchCount + ' 个热解批次' },
+    { id: 'kpi-carbonsink', has: (ed.carbonsink || []).length > 0, v: sinkTotal + ' tCO₂e', hint: (ed.carbonsink || []).length + ' 笔核算记录' },
+    { id: 'kpi-trading', has: (ed.trading || []).length > 0, v: '¥' + tradeAmount.toLocaleString(), hint: (ed.trading || []).length + ' 笔交易记录' }
+  ];
+  kpis.forEach(function(k) {
+    var card = document.getElementById(k.id);
+    if (!card) return;
+    var valueRow = card.querySelector('.kpi-value-row');
+    if (!valueRow) return;
+    if (k.has) {
+      valueRow.innerHTML = '<span class="kpi-value" style="color:var(--c-green-deep)">' + k.v + '</span><div style="font-size:11px;color:var(--c-text-3);margin-top:2px">' + k.hint + '</div>';
+    } else {
+      valueRow.innerHTML = '<span class="kpi-dash">—</span><span class="kpi-hint">暂无数据，请先录入</span>';
+    }
+  });
+}
+/* ========== End 总览 KPI 联动 ========== */
+
 function switchModule(key) {
   const config = moduleConfig[key];
   if (!config) return;
@@ -2035,7 +2063,11 @@ function switchModule(key) {
   if (key === 'overview') {
     overviewEl.style.display = '';
     dynamicEl.style.display = 'none';
-    if (demoMode) overviewEl.innerHTML = getDemoOverview();
+    if (demoMode) {
+      overviewEl.innerHTML = getDemoOverview();
+    } else {
+      refreshOverviewKPI();
+    }
   } else {
     overviewEl.style.display = 'none';
     dynamicEl.style.display = '';
@@ -2078,12 +2110,27 @@ function renderEntryData(key, records) {
     pyrolysis: {
       title: '热解批次记录', sub: '已录入 ' + records.length + ' 个批次',
       headers: ['批次号', '原料', '温度(°C)', '开始时间'],
-      statLabels: [['总批次', records.length + ' 个'], ['运行中', '待补充']]
+      statLabels: [['总批次', records.length + ' 个'], ['平均温度', avgRecords(records, '温度（°C）') + '°C']]
     },
     pollution: {
       title: '监测方案清单', sub: '已配置 ' + records.length + ' 项',
       headers: ['监测项目', '排放限值依据', '监测频率', '负责人'],
       statLabels: [['方案数', records.length + ' 项'], ['覆盖类型', '待补充']]
+    },
+    analysis: {
+      title: '质检报告记录', sub: '已上传 ' + records.length + ' 份',
+      headers: ['样品编号', '所属批次', '碳含量(%)', '灰分(%)', '热值(MJ/kg)'],
+      statLabels: [['样品数', records.length + ' 份'], ['平均碳含量', avgRecords(records, '碳含量（%）') + '%']]
+    },
+    carbonsink: {
+      title: '碳汇核算记录', sub: '已核算 ' + records.length + ' 笔',
+      headers: ['核算周期', '减排量(tCO₂e)', '核算方法', '核算说明'],
+      statLabels: [['核算笔数', records.length + ' 笔'], ['累计减排', sumRecords(records, '减排量（tCO₂e）') + ' tCO₂e']]
+    },
+    trading: {
+      title: '碳交易记录', sub: '已记录 ' + records.length + ' 笔',
+      headers: ['交易时间', '交易类型', '数量(tCO₂e)', '单价(元/t)'],
+      statLabels: [['交易笔数', records.length + ' 笔'], ['累计成交额', sumAmount(records) + ' 元']]
     }
   };
   const cfg = configs[key];
@@ -2094,10 +2141,11 @@ function renderEntryData(key, records) {
   const statCards = cfg.statLabels.map(function(s) {
     return '<div class="stat-card"><div class="stat-card-head"><span class="stat-card-label">' + s[0] + '</span></div><div><span class="stat-card-value">' + s[1] + '</span></div></div>';
   }).join('');
-  const titleMap = { materials: '原料管理', pyrolysis: '热解制备', pollution: '污染治理' };
+  const titleMap = { materials: '原料管理', pyrolysis: '热解制备', pollution: '污染治理', analysis: '碳质分析', carbonsink: '碳汇核算', trading: '碳交易市场' };
+  const addTextMap = { materials: '原料', pyrolysis: '批次', pollution: '方案', analysis: '质检', carbonsink: '核算', trading: '交易' };
   return '<div class="module-page" style="gap:16px">'
     + '<div class="stat-row">' + statCards
-    + '<div class="stat-card" style="background:transparent;border:1px dashed var(--c-border);cursor:pointer" onclick="openEntryModal(\'' + key + '\')"><div class="stat-card-head"><span class="stat-card-label">继续添加</span></div><div style="color:var(--c-primary);font-weight:600">+ 录入新' + (key==='materials'?'原料':key==='pyrolysis'?'批次':'方案') + '</div></div>'
+    + '<div class="stat-card" style="background:transparent;border:1px dashed var(--c-border);cursor:pointer" onclick="openEntryModal(\'' + key + '\')"><div class="stat-card-head"><span class="stat-card-label">继续添加</span></div><div style="color:var(--c-primary);font-weight:600">+ 录入新' + (addTextMap[key] || '记录') + '</div></div>'
     + '</div>'
     + '<div class="data-table"><div class="data-table-head"><div><div class="data-table-title">' + cfg.title + '</div><div class="data-table-sub">' + cfg.sub + '</div></div></div><table><thead><tr>'
     + cfg.headers.map(function(h) { return '<th>' + h + '</th>'; }).join('')
@@ -2115,6 +2163,22 @@ function sumRecords(records, label) {
     if (!isNaN(v)) total += v;
   });
   return total;
+}
+
+function avgRecords(records, label) {
+  if (!records.length) return 0;
+  const total = sumRecords(records, label);
+  return Math.round(total / records.length * 10) / 10;
+}
+
+function sumAmount(records) {
+  let total = 0;
+  records.forEach(function(r) {
+    const qty = parseFloat(r['数量（tCO₂e）']);
+    const price = parseFloat(r['单价（元/t）']);
+    if (!isNaN(qty) && !isNaN(price)) total += qty * price;
+  });
+  return Math.round(total);
 }
 /* ========== 用户录入数据视图 End ========== */
 
@@ -2171,14 +2235,28 @@ function getModuleContent(key) {
        { title: '前置条件', desc: '需先在初始化向导第 2 步中配置热解炉' }],
       'openEntryModal(\'pyrolysis\')'),
 
-    analysis: moduleEmpty('orange',
-      '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h8v6l6 18H8l6-18V4z"/><path d="M14 16h8"/></svg>',
-      '暂无质检样品',
-      '上传批次质检报告，系统将自动分析碳含量、灰分等指标并标记达标状态',
-      '上传质检报告', arrow, '上传报告 — 需先完成至少一个热解批次',
-      [{ title: '分析指标', desc: '碳含量、灰分、挥发分、热值、固定碳等多维度自动分析' },
-       { title: '达标判定', desc: '自动对照国标方法学，标记非达标样品并生成整改建议' }],
-      'jumpToModule(\'pyrolysis\', \'请先在【热解制备】完成至少一个批次，再回来上传质检报告\')'),
+    analysis: (function(){
+      // 动态前置判断：已录入热解批次 → 允许上传质检报告
+      var hasBatch = window.entryData && window.entryData.pyrolysis && window.entryData.pyrolysis.length > 0;
+      if (hasBatch) {
+        return moduleEmpty('orange',
+          '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h8v6l6 18H8l6-18V4z"/><path d="M14 16h8"/></svg>',
+          '暂无质检样品',
+          '已录入 ' + window.entryData.pyrolysis.length + ' 个热解批次，可上传质检报告了',
+          '上传质检报告', arrow, '',
+          [{ title: '分析指标', desc: '碳含量、灰分、挥发分、热值、固定碳等多维度自动分析' },
+           { title: '达标判定', desc: '自动对照国标方法学，标记非达标样品并生成整改建议' }],
+          'openEntryModal(\'analysis\')');
+      }
+      return moduleEmpty('orange',
+        '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h8v6l6 18H8l6-18V4z"/><path d="M14 16h8"/></svg>',
+        '暂无质检样品',
+        '上传批次质检报告，系统将自动分析碳含量、灰分等指标并标记达标状态',
+        '上传质检报告', arrow, '上传报告 — 需先完成至少一个热解批次',
+        [{ title: '分析指标', desc: '碳含量、灰分、挥发分、热值、固定碳等多维度自动分析' },
+         { title: '达标判定', desc: '自动对照国标方法学，标记非达标样品并生成整改建议' }],
+        'jumpToModule(\'pyrolysis\', \'请先在【热解制备】完成至少一个批次，再回来上传质检报告\')');
+    })(),
 
     pollution: moduleEmpty('purple',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 4L6 10v8c0 6 5 10 12 14 7-4 12-8 12-14v-8L18 4z"/><path d="M14 18l3 3 6-6"/></svg>',
@@ -2189,39 +2267,81 @@ function getModuleContent(key) {
        { title: '合规提醒', desc: '指标超标自动预警，生成合规报告供环保检查使用' }],
       'openEntryModal(\'pollution\')'),
 
-    carbonsink: moduleEmpty('orange',
-      '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="24" height="24" rx="3"/><path d="M10 14h16M10 19h10"/><circle cx="22" cy="19" r="2"/></svg>',
-      '暂无核算数据',
-      '录入热解批次和质检数据后，系统将自动按方法学核算碳汇量并生成报告',
-      '录入核算数据', arrow, '录入数据 — 需先完成热解批次和质检',
-      [{ title: '核算方法', desc: '基于 IPCC 方法学，结合生物质碳含量和热解参数自动计算减排量' },
-       { title: '报告输出', desc: '支持导出 PDF 核算报告，满足 CCER 项目申报要求' }],
-      'jumpToModule(\'pyrolysis\', \'请先在【热解制备】完成批次和质检，系统将自动核算碳汇\')'),
+    carbonsink: (function(){
+      // 动态前置判断：已录入质检报告 → 允许录入核算
+      var hasAnalysis = window.entryData && window.entryData.analysis && window.entryData.analysis.length > 0;
+      if (hasAnalysis) {
+        return moduleEmpty('orange',
+          '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="24" height="24" rx="3"/><path d="M10 14h16M10 19h10"/><circle cx="22" cy="19" r="2"/></svg>',
+          '暂无核算数据',
+          '已录入 ' + window.entryData.analysis.length + ' 份质检报告，可录入碳汇核算了',
+          '录入核算数据', arrow, '',
+          [{ title: '核算方法', desc: '基于 IPCC 方法学，结合生物质碳含量和热解参数自动计算减排量' },
+           { title: '报告输出', desc: '支持导出 PDF 核算报告，满足 CCER 项目申报要求' }],
+          'openEntryModal(\'carbonsink\')');
+      }
+      return moduleEmpty('orange',
+        '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="24" height="24" rx="3"/><path d="M10 14h16M10 19h10"/><circle cx="22" cy="19" r="2"/></svg>',
+        '暂无核算数据',
+        '录入热解批次和质检数据后，系统将自动按方法学核算碳汇量并生成报告',
+        '录入核算数据', arrow, '录入数据 — 需先完成热解批次和质检',
+        [{ title: '核算方法', desc: '基于 IPCC 方法学，结合生物质碳含量和热解参数自动计算减排量' },
+         { title: '报告输出', desc: '支持导出 PDF 核算报告，满足 CCER 项目申报要求' }],
+        'jumpToModule(\'analysis\', \'请先在【碳质分析】完成质检报告，系统将自动核算碳汇\')');
+    })(),
 
-    trading: moduleEmpty('purple',
-      '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="12"/><path d="M18 10v16M14 14h6a2 2 0 010 4h-4a2 2 0 010 4h6"/></svg>',
-      '暂无交易记录',
-      '关联 CCER 交易账户后，可在此查看碳配额行情、发起交易并记录流水',
-      '关联交易账户', arrow, '关联账户 — 请先完成碳汇核算',
-      [{ title: '市场行情', desc: '实时展示 CCER 碳价格走势、成交量、市场深度等行情数据' },
-       { title: '交易管理', desc: '支持挂牌交易、协议转让，自动记录交易流水和持仓变化' }],
-      'jumpToModule(\'carbonsink\', \'请先在【碳汇核算】完成核算后，再回来关联交易账户\')'),
+    trading: (function(){
+      // 动态前置判断：已录入碳汇核算 → 允许记录交易
+      var hasSink = window.entryData && window.entryData.carbonsink && window.entryData.carbonsink.length > 0;
+      if (hasSink) {
+        return moduleEmpty('purple',
+          '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="12"/><path d="M18 10v16M14 14h6a2 2 0 010 4h-4a2 2 0 010 4h6"/></svg>',
+          '暂无交易记录',
+          '已录入 ' + window.entryData.carbonsink.length + ' 笔碳汇核算，可记录交易了',
+          '记录碳交易', plus, '',
+          [{ title: '市场行情', desc: '实时展示 CCER 碳价格走势、成交量、市场深度等行情数据' },
+           { title: '交易管理', desc: '支持挂牌交易、协议转让，自动记录交易流水和持仓变化' }],
+          'openEntryModal(\'trading\')');
+      }
+      return moduleEmpty('purple',
+        '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="12"/><path d="M18 10v16M14 14h6a2 2 0 010 4h-4a2 2 0 010 4h6"/></svg>',
+        '暂无交易记录',
+        '关联 CCER 交易账户后，可在此查看碳配额行情、发起交易并记录流水',
+        '关联交易账户', arrow, '关联账户 — 请先完成碳汇核算',
+        [{ title: '市场行情', desc: '实时展示 CCER 碳价格走势、成交量、市场深度等行情数据' },
+         { title: '交易管理', desc: '支持挂牌交易、协议转让，自动记录交易流水和持仓变化' }],
+        'jumpToModule(\'carbonsink\', \'请先在【碳汇核算】完成核算后，再回来关联交易账户\')');
+    })(),
 
-    ai: moduleEmpty('green',
-      '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="20" height="20" rx="4"/><circle cx="18" cy="18" r="4"/><path d="M18 4v4M18 28v4M4 18h4M28 18h4"/></svg>',
-      '暂无优化建议',
-      '积累一定生产数据后，AI 将自动分析工艺参数并提供产率优化和能耗降低建议',
-      '启用AI分析', arrow, '启用分析 — 需先积累至少 3 个批次的生产数据',
-      [{ title: '分析维度', desc: '原料配比优化、热解温度调节、产率提升、能耗降低多维度分析' },
-       { title: '智能推荐', desc: '每周自动生成优化报告，推送可执行的改进建议和预期收益' }],
-      'jumpToModule(\'pyrolysis\', \'请先在【热解制备】积累至少 3 个批次的生产数据，再启用 AI 分析\')')
+    ai: (function(){
+      // 动态前置判断：已录入 ≥3 个热解批次 → 允许启用 AI
+      var batchCount = (window.entryData && window.entryData.pyrolysis) ? window.entryData.pyrolysis.length : 0;
+      if (batchCount >= 3) {
+        return moduleEmpty('green',
+          '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="20" height="20" rx="4"/><circle cx="18" cy="18" r="4"/><path d="M18 4v4M18 28v4M4 18h4M28 18h4"/></svg>',
+          '暂无优化建议',
+          '已积累 ' + batchCount + ' 个批次数据，可启用 AI 分析了',
+          '启用AI分析', plus, '',
+          [{ title: '分析维度', desc: '原料配比优化、热解温度调节、产率提升、能耗降低多维度分析' },
+           { title: '智能推荐', desc: '每周自动生成优化报告，推送可执行的改进建议和预期收益' }],
+          'showToast(\'已基于 ' + batchCount + ' 个批次数据生成优化分析（演示）\')');
+      }
+      return moduleEmpty('green',
+        '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="20" height="20" rx="4"/><circle cx="18" cy="18" r="4"/><path d="M18 4v4M18 28v4M4 18h4M28 18h4"/></svg>',
+        '暂无优化建议',
+        '积累一定生产数据后，AI 将自动分析工艺参数并提供产率优化和能耗降低建议',
+        '启用AI分析', arrow, '启用分析 — 需先积累至少 3 个批次的生产数据',
+        [{ title: '分析维度', desc: '原料配比优化、热解温度调节、产率提升、能耗降低多维度分析' },
+         { title: '智能推荐', desc: '每周自动生成优化报告，推送可执行的改进建议和预期收益' }],
+        'jumpToModule(\'pyrolysis\', \'请先在【热解制备】积累至少 3 个批次的生产数据，再启用 AI 分析\')');
+    })()
   };
   return templates[key] || '';
 }
 
 /* ========== Entry Modal (真实数据录入弹窗) ========== */
 // 用户录入的数据（内存态，非演示数据）
-window.entryData = { materials: [], pyrolysis: [], pollution: [] };
+window.entryData = { materials: [], pyrolysis: [], analysis: [], carbonsink: [], trading: [] };
 
 const ENTRY_FORMS = {
   materials: {
@@ -2250,18 +2370,56 @@ const ENTRY_FORMS = {
       { label: '监测频率', type: 'select', options: ['在线连续', '每 2 小时', '每日', '每周'] },
       { label: '负责人', placeholder: '如：环保专员 张工' }
     ]
+  },
+  analysis: {
+    title: '上传质检报告',
+    fields: [
+      { label: '样品编号', placeholder: '如：QR-0811-01', required: true },
+      { label: '所属批次', type: 'select', dynamic: true, placeholder: '选择已录入的批次' },
+      { label: '碳含量（%）', placeholder: '如：76.5', required: true },
+      { label: '灰分（%）', placeholder: '如：9.2', required: true },
+      { label: '热值（MJ/kg）', placeholder: '如：27.8', required: true }
+    ]
+  },
+  carbonsink: {
+    title: '录入碳汇核算',
+    fields: [
+      { label: '核算周期', placeholder: '如：2026年8月', required: true },
+      { label: '减排量（tCO₂e）', placeholder: '如：52', required: true },
+      { label: '核算方法', type: 'select', options: ['IPCC 方法学', '生物质碳含量法', '替代能源法'] },
+      { label: '核算说明', placeholder: '如：基于批次 B0811-03 产炭量核算' }
+    ]
+  },
+  trading: {
+    title: '记录碳交易',
+    fields: [
+      { label: '交易时间', placeholder: '如：08-11 09:45', required: true },
+      { label: '交易类型', type: 'select', options: ['卖出', '买入'] },
+      { label: '数量（tCO₂e）', placeholder: '如：50', required: true },
+      { label: '单价（元/t）', placeholder: '如：65', required: true }
+    ]
   }
 };
 
 function openEntryModal(key) {
   const cfg = ENTRY_FORMS[key];
   if (!cfg) return;
+  // dynamic 字段：打开时动态生成选项（如质检的"所属批次"取自已录入批次）
+  const effectiveFields = cfg.fields.map(function(f) {
+    if (f.dynamic) {
+      const batches = (window.entryData && window.entryData.pyrolysis) || [];
+      const opts = batches.length ? batches.map(function(b) { return b['批次号']; }) : [];
+      if (opts.length) return Object.assign({}, f, { options: opts });
+      return Object.assign({}, f, { options: ['暂无批次，请先到热解制备录入'], dynamicEmpty: true });
+    }
+    return f;
+  });
   let html = '<div class="entry-modal-mask" id="entry-modal" onclick="if(event.target===this)closeEntryModal()">'
     + '<div class="entry-modal">'
     + '<div class="entry-modal-head"><div class="entry-modal-title">' + cfg.title + '</div>'
     + '<button class="entry-modal-close" onclick="closeEntryModal()">✕</button></div>'
     + '<div class="entry-modal-body">';
-  cfg.fields.forEach((f, i) => {
+  effectiveFields.forEach((f, i) => {
     html += '<div class="form-field"><div class="form-field-label"><span class="form-field-label-text">' + f.label + '</span>'
       + (f.required ? '<span class="form-field-required">*</span>' : '') + '</div>';
     if (f.type === 'select') {
@@ -2302,12 +2460,22 @@ function submitEntry(key) {
   if (missing) { showToast('请完整填写所有字段'); return; }
   window.entryData[key].push(record);
   closeEntryModal();
-  showToast('已保存「' + record[Object.keys(record)[0]] + '」，可在本模块查看');
+  // 下一步引导（业务链联动）
+  const nextHints = {
+    materials: '已保存！下一步：到【热解制备】启动热解批次',
+    pyrolysis: '已保存！下一步：到【碳质分析】上传质检报告',
+    analysis: '已保存！下一步：到【碳汇核算】录入碳汇数据',
+    carbonsink: '已保存！下一步：到【碳交易市场】记录交易',
+    trading: '已保存！数据链已完整，可到总览查看联动效果',
+    pollution: '已保存监测方案！'
+  };
+  showToast(nextHints[key] || '已保存');
   if (demoMode) return;
-  // 非演示模式：重新渲染当前模块，从空状态切换为数据视图
+  // 非演示模式：重新渲染当前模块 + 刷新总览 KPI
   const dynamicEl = document.getElementById('module-dynamic');
   const currentKey = document.querySelector('.sidebar-nav-item.active') ? document.querySelector('.sidebar-nav-item.active').dataset.module : key;
   if (dynamicEl && currentKey === key) dynamicEl.innerHTML = getModuleContent(key);
+  refreshOverviewKPI();
 }
 /* ========== End Entry Modal ========== */
 
