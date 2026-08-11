@@ -847,6 +847,52 @@ svg { display: block; }
 .module-empty-btn:hover { background: #0dab75; }
 .module-empty-btn svg { width: 16px; height: 16px; }
 
+/* ===== Entry Modal (数据录入弹窗) ===== */
+.entry-modal-mask {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(15, 28, 41, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  animation: maskIn 0.2s ease;
+}
+@keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
+.entry-modal {
+  width: 520px; max-width: 92vw; max-height: 86vh; overflow-y: auto;
+  background: var(--c-white);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(15, 28, 41, 0.25);
+  padding: 28px;
+  animation: panelIn 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.entry-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.entry-modal-title { font-size: 18px; font-weight: 700; color: var(--c-text-1); display: flex; align-items: center; gap: 8px; }
+.entry-modal-close {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid var(--c-border);
+  background: var(--c-input-bg);
+  color: var(--c-text-3);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 15px;
+  transition: all 0.15s;
+}
+.entry-modal-close:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.entry-modal-body { display: flex; flex-direction: column; gap: 16px; }
+.entry-modal .form-field { gap: 6px; }
+.entry-modal .form-input { height: 44px; }
+.entry-modal .form-input input,
+.entry-modal .form-select-input { width: 100%; height: 100%; border: none; outline: none; background: transparent; font-size: 14px; color: var(--c-text-1); }
+.entry-modal-foot { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.entry-modal-btn {
+  height: 42px; padding: 0 20px;
+  border-radius: 8px; font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
+  cursor: pointer; transition: all 0.15s;
+}
+.entry-modal-btn.cancel { background: var(--c-input-bg); border: 1px solid var(--c-border); color: var(--c-text-2); }
+.entry-modal-btn.cancel:hover { border-color: var(--c-text-3); }
+.entry-modal-btn.submit { background: var(--c-primary); color: #fff; box-shadow: var(--shadow-green-sm); }
+.entry-modal-btn.submit:hover { background: #0dab75; }
+/* ===== End Entry Modal ===== */
+
 .module-info-grid { display: flex; gap: 16px; width: 100%; max-width: 720px; }
 .module-info-card {
   flex: 1; background: var(--c-white);
@@ -2020,6 +2066,58 @@ function jumpToModule(key, msg) {
   if (msg) showToast(msg);
 }
 
+/* ========== 用户录入数据视图（替代空状态） ========== */
+function renderEntryData(key, records) {
+  const plus = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>';
+  const configs = {
+    materials: {
+      title: '原料库存清单', sub: '已录入 ' + records.length + ' 条',
+      headers: ['原料名称', '原料类型', '库存量(吨)', '供应商'],
+      statLabels: [['库存种类', records.length + ' 种'], ['累计库存', sumRecords(records, '库存量（吨）') + ' 吨']]
+    },
+    pyrolysis: {
+      title: '热解批次记录', sub: '已录入 ' + records.length + ' 个批次',
+      headers: ['批次号', '原料', '温度(°C)', '开始时间'],
+      statLabels: [['总批次', records.length + ' 个'], ['运行中', '待补充']]
+    },
+    pollution: {
+      title: '监测方案清单', sub: '已配置 ' + records.length + ' 项',
+      headers: ['监测项目', '排放限值依据', '监测频率', '负责人'],
+      statLabels: [['方案数', records.length + ' 项'], ['覆盖类型', '待补充']]
+    }
+  };
+  const cfg = configs[key];
+  if (!cfg) return '';
+  const rows = records.map(function(r) {
+    return '<tr>' + cfg.headers.map(function(h) { return '<td>' + (r[h] || '—') + '</td>'; }).join('') + '</tr>';
+  }).join('');
+  const statCards = cfg.statLabels.map(function(s) {
+    return '<div class="stat-card"><div class="stat-card-head"><span class="stat-card-label">' + s[0] + '</span></div><div><span class="stat-card-value">' + s[1] + '</span></div></div>';
+  }).join('');
+  const titleMap = { materials: '原料管理', pyrolysis: '热解制备', pollution: '污染治理' };
+  return '<div class="module-page" style="gap:16px">'
+    + '<div class="stat-row">' + statCards
+    + '<div class="stat-card" style="background:transparent;border:1px dashed var(--c-border);cursor:pointer" onclick="openEntryModal(\'' + key + '\')"><div class="stat-card-head"><span class="stat-card-label">继续添加</span></div><div style="color:var(--c-primary);font-weight:600">+ 录入新' + (key==='materials'?'原料':key==='pyrolysis'?'批次':'方案') + '</div></div>'
+    + '</div>'
+    + '<div class="data-table"><div class="data-table-head"><div><div class="data-table-title">' + cfg.title + '</div><div class="data-table-sub">' + cfg.sub + '</div></div></div><table><thead><tr>'
+    + cfg.headers.map(function(h) { return '<th>' + h + '</th>'; }).join('')
+    + '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + '<div class="module-info-grid">'
+    + '<div class="module-info-card"><div class="module-info-card-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 1.5"/></svg><span>数据说明</span></div><div class="module-info-card-desc">数据已保存在本页面（内存），刷新后重置。正式版将持久化存储。</div></div>'
+    + '<div class="module-info-card"><div class="module-info-card-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 1.5"/></svg><span>模块 ' + titleMap[key] + '</span></div><div class="module-info-card-desc">可以继续添加更多记录，或点右上角「先体验演示数据」查看完整效果。</div></div>'
+    + '</div></div>';
+}
+
+function sumRecords(records, label) {
+  let total = 0;
+  records.forEach(function(r) {
+    const v = parseFloat(r[label]);
+    if (!isNaN(v)) total += v;
+  });
+  return total;
+}
+/* ========== 用户录入数据视图 End ========== */
+
 function moduleEmpty(iconColor, iconSvg, title, desc, btnText, btnIcon, toastMsg, infoCards, jumpAction) {
   let infoHtml = '<div class="module-info-grid">';
   infoCards.forEach(c => {
@@ -2049,24 +2147,29 @@ function getModuleContent(key) {
   const plus = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>';
   const arrow = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg>';
 
+  // 用户已录入数据时：展示数据视图（替代空状态）
+  if (window.entryData && window.entryData[key] && window.entryData[key].length > 0) {
+    return renderEntryData(key, window.entryData[key]);
+  }
+
   const templates = {
     materials: moduleEmpty('green',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l12-6 12 6-12 6-12-6z"/><path d="M6 12v12l12 6 12-6V12"/></svg>',
       '暂无原料数据',
       '录入第一批原料信息，系统将自动跟踪库存变化、预警状态和供应商管理',
-      '添加第一批原料', plus, '添加原料 — 请先完成初始化向导第 1 步',
+      '添加第一批原料', plus, '',
       [{ title: '原料类型', desc: '支持秸秆类、畜禽粪便、林业废弃物、餐厨垃圾等多种生物质原料分类管理' },
        { title: '核心功能', desc: '入库管理、库存预警、供应商档案、批次追溯全流程覆盖' }],
-      'gotoWizardStep(1)'),
+      'openEntryModal(\'materials\')'),
 
     pyrolysis: moduleEmpty('cyan',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 4L8 10v16l10 6 10-6V10L18 4z"/><path d="M18 10v14M12 14l6 3 6-3"/></svg>',
       '暂无热解批次',
       '配置热解炉参数并启动第一个热解批次，系统将自动记录温度、产率等关键参数',
-      '启动第一个热解批次', plus, '启动批次 — 请先在初始化向导第 2 步配置热解炉',
+      '启动第一个热解批次', plus, '',
       [{ title: '批次管理', desc: '创建批次、跟踪温度产率、完成后自动结算产率和碳转化率' },
        { title: '前置条件', desc: '需先在初始化向导第 2 步中配置热解炉' }],
-      'gotoWizardStep(2)'),
+      'openEntryModal(\'pyrolysis\')'),
 
     analysis: moduleEmpty('orange',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h8v6l6 18H8l6-18V4z"/><path d="M14 16h8"/></svg>',
@@ -2081,10 +2184,10 @@ function getModuleContent(key) {
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 4L6 10v8c0 6 5 10 12 14 7-4 12-8 12-14v-8L18 4z"/><path d="M14 18l3 3 6-6"/></svg>',
       '暂无监测方案数据',
       '配置尾气处理与废水治理监测，系统将跟踪排放指标是否达标',
-      '配置监测方案', plus, '配置监测方案 — 请先完成企业信息配置',
+      '配置监测方案', plus, '',
       [{ title: '监测范围', desc: '尾气排放（SO₂、NOx、粉尘）、废水指标（COD、氨氮）、噪音监测' },
        { title: '合规提醒', desc: '指标超标自动预警，生成合规报告供环保检查使用' }],
-      'gotoWizardStep(1)'),
+      'openEntryModal(\'pollution\')'),
 
     carbonsink: moduleEmpty('orange',
       '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="24" height="24" rx="3"/><path d="M10 14h16M10 19h10"/><circle cx="22" cy="19" r="2"/></svg>',
@@ -2115,6 +2218,98 @@ function getModuleContent(key) {
   };
   return templates[key] || '';
 }
+
+/* ========== Entry Modal (真实数据录入弹窗) ========== */
+// 用户录入的数据（内存态，非演示数据）
+window.entryData = { materials: [], pyrolysis: [], pollution: [] };
+
+const ENTRY_FORMS = {
+  materials: {
+    title: '添加原料',
+    fields: [
+      { label: '原料名称', placeholder: '如：玉米秸秆', required: true },
+      { label: '原料类型', type: 'select', options: ['秸秆类', '畜禽粪便', '林业废弃物', '餐厨垃圾', '其他'] },
+      { label: '库存量（吨）', placeholder: '如：385', required: true },
+      { label: '供应商', placeholder: '如：绿源农业' }
+    ]
+  },
+  pyrolysis: {
+    title: '启动热解批次',
+    fields: [
+      { label: '批次号', placeholder: '如：B0811-03', required: true },
+      { label: '原料', placeholder: '如：玉米秸秆', required: true },
+      { label: '温度（°C）', placeholder: '如：520', required: true },
+      { label: '开始时间', placeholder: '如：08-11 08:30', required: true }
+    ]
+  },
+  pollution: {
+    title: '配置监测方案',
+    fields: [
+      { label: '监测项目', type: 'select', options: ['尾气（SO₂/NOx/粉尘）', '废水（COD/氨氮）', '噪音', '全面监测'] },
+      { label: '排放限值依据', placeholder: '如：GB 31573-2015' },
+      { label: '监测频率', type: 'select', options: ['在线连续', '每 2 小时', '每日', '每周'] },
+      { label: '负责人', placeholder: '如：环保专员 张工' }
+    ]
+  }
+};
+
+function openEntryModal(key) {
+  const cfg = ENTRY_FORMS[key];
+  if (!cfg) return;
+  let html = '<div class="entry-modal-mask" id="entry-modal" onclick="if(event.target===this)closeEntryModal()">'
+    + '<div class="entry-modal">'
+    + '<div class="entry-modal-head"><div class="entry-modal-title">' + cfg.title + '</div>'
+    + '<button class="entry-modal-close" onclick="closeEntryModal()">✕</button></div>'
+    + '<div class="entry-modal-body">';
+  cfg.fields.forEach((f, i) => {
+    html += '<div class="form-field"><div class="form-field-label"><span class="form-field-label-text">' + f.label + '</span>'
+      + (f.required ? '<span class="form-field-required">*</span>' : '') + '</div>';
+    if (f.type === 'select') {
+      html += '<div class="form-input form-select" data-label="' + f.label + '">'
+        + '<input type="text" class="form-select-input entry-input" data-label="' + f.label + '" placeholder="请选择或输入" value="">'
+        + '<svg class="form-input-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>'
+        + '<div class="select-dropdown">';
+      f.options.forEach(function(opt) {
+        html += '<div class="select-option" data-label="' + f.label + '">' + opt + '</div>';
+      });
+      html += '</div></div>';
+    } else {
+      html += '<div class="form-input"><input type="text" class="entry-input" data-label="' + f.label + '" placeholder="' + (f.placeholder || '') + '" value=""></div>';
+    }
+    html += '</div>';
+  });
+  html += '</div><div class="entry-modal-foot">'
+    + '<button class="entry-modal-btn cancel" onclick="closeEntryModal()">取消</button>'
+    + '<button class="entry-modal-btn submit" onclick="submitEntry(\'' + key + '\')">保存</button>'
+    + '</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeEntryModal() {
+  const modal = document.getElementById('entry-modal');
+  if (modal) modal.remove();
+}
+
+function submitEntry(key) {
+  const inputs = document.querySelectorAll('#entry-modal .entry-input');
+  const record = {};
+  let missing = false;
+  inputs.forEach(inp => {
+    const label = inp.getAttribute('data-label');
+    record[label] = inp.value.trim();
+    if (!record[label]) missing = true;
+  });
+  if (missing) { showToast('请完整填写所有字段'); return; }
+  window.entryData[key].push(record);
+  closeEntryModal();
+  showToast('已保存「' + record[Object.keys(record)[0]] + '」，可在本模块查看');
+  if (demoMode) return;
+  // 非演示模式：重新渲染当前模块，从空状态切换为数据视图
+  const dynamicEl = document.getElementById('module-dynamic');
+  const currentKey = document.querySelector('.sidebar-nav-item.active') ? document.querySelector('.sidebar-nav-item.active').dataset.module : key;
+  if (dynamicEl && currentKey === key) dynamicEl.innerHTML = getModuleContent(key);
+}
+/* ========== End Entry Modal ========== */
 
 /* ========== Demo Content Helpers ========== */
 const _ic = {
