@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>碳智汇 — 生物质固废碳管理数据看板</title>
+<title>数智碳路 — 生物质固废碳管理数据看板</title>
 <style>
 /* ========== Design Tokens ========== */
 :root {
@@ -270,7 +270,39 @@ svg { display: block; }
   width: 100%; height: 100%; font-size: 14px; color: var(--c-text-1);
 }
 .form-input input::placeholder { color: var(--c-text-3); }
-.form-input-arrow { width: 16px; height: 16px; color: var(--c-text-3); flex-shrink: 0; }
+.form-input-arrow { width: 16px; height: 16px; color: var(--c-text-3); flex-shrink: 0; transition: transform 0.15s; }
+
+/* ===== Select Dropdown (修复向导下拉框无法选择) ===== */
+.form-select { cursor: pointer; position: relative; user-select: none; }
+.form-select.open { border-color: var(--c-primary); background: var(--c-input-bg); }
+.form-select.open .form-input-arrow { transform: rotate(180deg); }
+.select-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--c-white);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 28, 41, 0.12);
+  z-index: 100;
+  padding: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.form-select.open .select-dropdown { display: block; }
+.select-option {
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--c-text-2);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.select-option:hover { background: var(--c-input-bg); color: var(--c-text-1); }
+.select-option.selected { background: rgba(15, 186, 130, 0.10); color: var(--c-green-deep); font-weight: 600; }
+.select-option.selected::before { content: '✓ '; }
+/* ===== End Select Dropdown ===== */
 
 .form-chip-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .form-chip {
@@ -1075,7 +1107,7 @@ svg { display: block; }
         <circle cx="24" cy="26" r="3" fill="#0FBA82"/>
       </svg>
     </div>
-    <h1 class="welcome-app-name">碳智汇</h1>
+    <h1 class="welcome-app-name">数智碳路</h1>
     <p class="welcome-tagline">生物质固废碳管理数据看板</p>
     <p class="welcome-desc">从原料管理到碳汇核算，一站式管理生物质固废转化全流程<br>实时监控生产数据，自动核算碳汇，对接碳交易市场</p>
 
@@ -1130,7 +1162,7 @@ svg { display: block; }
     </div>
   </div>
 
-  <div class="welcome-version">v1.0.0  |  ©2025 碳智汇</div>
+  <div class="welcome-version">v1.0.0  |  ©2025 数智碳路</div>
 </div>
 
 <!-- ================================================== -->
@@ -1147,7 +1179,7 @@ svg { display: block; }
         </svg>
       </div>
       <div>
-        <div class="sidebar-logo-name">碳智汇</div>
+        <div class="sidebar-logo-name">数智碳路</div>
         <div class="sidebar-logo-sub">Carbon Hub</div>
       </div>
     </div>
@@ -1216,7 +1248,7 @@ svg { display: block; }
         </svg>
       </div>
       <div>
-        <div class="sidebar-logo-name">碳智汇</div>
+        <div class="sidebar-logo-name">数智碳路</div>
         <div class="sidebar-logo-sub">Carbon Hub</div>
       </div>
     </div>
@@ -1313,7 +1345,7 @@ svg { display: block; }
       <div class="welcome-banner">
         <div class="welcome-banner-left">
           <span class="welcome-banner-label">首次使用引导</span>
-          <div class="welcome-banner-title">欢迎使用碳智汇！完成以下 4 步即可开始使用</div>
+          <div class="welcome-banner-title">欢迎使用数智碳路！完成以下 4 步即可开始使用</div>
           <div class="welcome-banner-desc">本系统已根据您填写的企业信息预置了基础模板，建议按顺序完成初始化。</div>
         </div>
         <button class="welcome-banner-btn" onclick="jumpToModule('materials', '已跳转到原料管理，请录入第一批原料')">
@@ -1680,12 +1712,19 @@ function renderSetupStep(stepNum) {
       html += `<input type="text" placeholder="${field.placeholder || ''}" value="${field.value || ''}">`;
       html += '</div>';
     } else if (field.type === 'select') {
-      const displayValue = field.value || field.placeholder || '';
-      const placeholderClass = field.value ? '' : ' style="color: var(--c-text-3);"';
-      html += '<div class="form-input">';
-      html += `<span${placeholderClass}>${displayValue}</span>`;
+      // 可点击下拉选择器：显示当前值（或占位符），点击展开选项列表
+      const savedVal = (window.setupData && window.setupData[field.label]) || field.value || '';
+      const displayValue = savedVal || field.placeholder || '请选择';
+      const phStyle = savedVal ? '' : ' style="color: var(--c-text-3);"';
+      html += '<div class="form-input form-select" data-label="' + field.label + '">';
+      html += '<span class="form-select-value"' + phStyle + '>' + displayValue + '</span>';
       html += '<svg class="form-input-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 6l4 4 4-4"/></svg>';
-      html += '</div>';
+      html += '<div class="select-dropdown">';
+      field.options.forEach(function(opt) {
+        const sel = savedVal === opt ? ' selected' : '';
+        html += '<div class="select-option' + sel + '" data-label="' + field.label + '">' + opt + '</div>';
+      });
+      html += '</div></div>';
     } else if (field.type === 'chips') {
       html += '<div class="form-chip-row">';
       field.chips.forEach((chip, idx) => {
@@ -1749,6 +1788,45 @@ function finishSetup() {
 function toggleChip(el) {
   el.classList.toggle('selected');
 }
+
+/* ========== Select Dropdown (向导下拉选择器) ========== */
+window.setupData = window.setupData || {};
+
+function closeAllSelectDropdowns(except) {
+  document.querySelectorAll('.form-select.open').forEach(function(sel) {
+    if (sel !== except) sel.classList.remove('open');
+  });
+}
+
+document.addEventListener('click', function(e) {
+  var option = e.target.closest('.select-option');
+  var select = e.target.closest('.form-select');
+
+  if (option) {
+    // 选中选项：保存值、更新显示、高亮、关闭面板
+    var wrap = option.closest('.form-select');
+    var label = wrap.getAttribute('data-label');
+    var value = option.textContent.trim();
+    window.setupData[label] = value;
+    var valueEl = wrap.querySelector('.form-select-value');
+    if (valueEl) {
+      valueEl.textContent = value;
+      valueEl.style.color = '';
+    }
+    wrap.querySelectorAll('.select-option').forEach(function(o) { o.classList.remove('selected'); });
+    option.classList.add('selected');
+    closeAllSelectDropdowns();
+  } else if (select) {
+    // 点击下拉框本体：切换展开/收起
+    var isOpen = select.classList.contains('open');
+    closeAllSelectDropdowns();
+    if (!isOpen) select.classList.add('open');
+  } else {
+    // 点击其他区域：全部收起
+    closeAllSelectDropdowns();
+  }
+});
+/* ========== End Select Dropdown ========== */
 
 /* ========== Time Switcher ========== */
 var currentOverviewRange = '7d';
