@@ -2099,6 +2099,92 @@ function jumpToModule(key, msg) {
 }
 
 /* ========== 用户录入数据视图（替代空状态） ========== */
+// 为录入数据生成图表（复用现有 chart-bars / hbar / donut 组件）
+function _entryChart(key, records) {
+  if (!records || !records.length) return '';
+  var titleMap = { materials: '原料库存分布', pyrolysis: '批次温度分布', pollution: '监测方案覆盖', analysis: '样品碳含量分布', carbonsink: '各期减排量', trading: '交易金额分布' };
+  var subMap = { materials: '各原料库存量（吨）', pyrolysis: '各批次热解温度（°C）', pollution: '各监测项目配置情况', analysis: '样品碳含量（%）', carbonsink: '各核算周期减排量（tCO₂e）', trading: '各笔交易金额（元）' };
+  var barHtml = '';
+  var maxV = 0, i;
+
+  if (key === 'analysis') {
+    // 环形图：碳含量 >= 70% 视为达标
+    var pass = 0, fail = 0;
+    records.forEach(function(r) {
+      var c = parseFloat(r['碳含量（%）']);
+      if (!isNaN(c) && c >= 70) pass++; else fail++;
+    });
+    var total = records.length;
+    var passPctNum = (total ? pass / total * 100 : 0);
+    var passPct = passPctNum.toFixed(1);
+    var failPct = (100 - passPctNum).toFixed(1);
+    var anC = (2 * Math.PI * 45).toFixed(1);
+    var passDash = (passPctNum / 100 * parseFloat(anC)).toFixed(1);
+    var failDash = (100 - passPctNum) / 100 * parseFloat(anC);
+    var donut = '<div class="donut-wrap">'
+      + '<svg class="donut-svg" viewBox="0 0 120 120">'
+      + '<circle cx="60" cy="60" r="45" fill="none" stroke="#F3F4F6" stroke-width="16"/>'
+      + '<circle cx="60" cy="60" r="45" fill="none" stroke="var(--c-primary)" stroke-width="16" stroke-dasharray="' + passDash + ' ' + anC + '" transform="rotate(-90 60 60)"/>'
+      + '<circle cx="60" cy="60" r="45" fill="none" stroke="var(--c-red)" stroke-width="16" stroke-dasharray="' + failDash.toFixed(1) + ' ' + anC + '" stroke-dashoffset="-' + passDash + '" transform="rotate(-90 60 60)"/>'
+      + '<text x="60" y="58" text-anchor="middle" font-size="17" font-weight="700" fill="#1F2937">' + pass + '/' + total + '</text>'
+      + '<text x="60" y="74" text-anchor="middle" font-size="10" fill="#9CA3AF">达标率 ' + passPct + '%</text>'
+      + '</svg>'
+      + '<div class="donut-legend">'
+      + '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:var(--c-primary)"></span>达标样品 <strong>' + pass + '</strong><span class="pct">' + passPct + '%</span></div>'
+      + '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:var(--c-red)"></span>非达标样品 <strong>' + fail + '</strong><span class="pct">' + failPct + '%</span></div>'
+      + '</div></div>';
+    return '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">样品达标分布</div><div class="card-sub">碳含量 ≥70% 计为达标 · ' + total + ' 个样品</div></div></div><div class="chart-area">' + donut + '</div></div>';
+  }
+
+  // 柱状图：提取数值字段
+  var valField = { materials: '库存量（吨）', pyrolysis: '温度（°C）', carbonsink: '减排量（tCO₂e）' }[key];
+  var labelField = { materials: '原料名称', pyrolysis: '批次号', carbonsink: '核算周期' }[key];
+  var bars = records.map(function(r) {
+    var v = parseFloat(r[valField]);
+    if (isNaN(v)) v = 0;
+    if (v > maxV) maxV = v;
+    return { v: v, l: r[labelField] || '—' };
+  });
+  if (maxV <= 0) maxV = 1;
+  if (bars.length > 12) bars = bars.slice(bars.length - 12); // 最多显示 12 根柱
+  barHtml = '<div class="chart-bars" style="min-height:140px">' + bars.map(function(b) {
+    var pct = Math.round(b.v / maxV * 100);
+    return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div><span class="chart-bar-label">' + b.l + '</span></div>';
+  }).join('') + '</div>';
+
+  if (key === 'trading') {
+    // 交易金额 = 数量 × 单价
+    var tradeMax = 0;
+    var tbars = records.map(function(r) {
+      var qty = parseFloat(r['数量（tCO₂e）']);
+      var price = parseFloat(r['单价（元/t）']);
+      var amt = (!isNaN(qty) && !isNaN(price)) ? qty * price : 0;
+      if (amt > tradeMax) tradeMax = amt;
+      return { v: amt, l: r['交易时间'] || '—' };
+    });
+    if (tradeMax <= 0) tradeMax = 1;
+    if (tbars.length > 12) tbars = tbars.slice(tbars.length - 12);
+    barHtml = '<div class="chart-bars" style="min-height:140px">' + tbars.map(function(b) {
+      var pct = Math.round(b.v / tradeMax * 100);
+      return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div><span class="chart-bar-label">' + b.l + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  if (key === 'pollution') {
+    // 横向条形：各监测方案（频率分布）
+    var freqCount = {};
+    records.forEach(function(r) { var f = r['监测频率'] || '其他'; freqCount[f] = (freqCount[f] || 0) + 1; });
+    var maxF = 1;
+    Object.keys(freqCount).forEach(function(f) { if (freqCount[f] > maxF) maxF = freqCount[f]; });
+    barHtml = '<div class="hbar-list">' + Object.keys(freqCount).map(function(f) {
+      var pct = Math.round(freqCount[f] / maxF * 100);
+      return '<div class="hbar-item"><div class="hbar-head"><span class="hbar-name">' + f + '</span><span class="hbar-val">' + freqCount[f] + ' 项</span></div><div class="hbar-track"><div class="hbar-fill" style="width:' + pct + '%"></div></div></div>';
+    }).join('') + '</div>';
+  }
+
+  return '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">' + (titleMap[key] || '数据图表') + '</div><div class="card-sub">' + (subMap[key] || '') + '</div></div></div><div class="chart-area">' + barHtml + '</div></div>';
+}
+
 function renderEntryData(key, records) {
   const plus = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>';
   const configs = {
@@ -2147,6 +2233,7 @@ function renderEntryData(key, records) {
     + '<div class="stat-row">' + statCards
     + '<div class="stat-card" style="background:transparent;border:1px dashed var(--c-border);cursor:pointer" onclick="openEntryModal(\'' + key + '\')"><div class="stat-card-head"><span class="stat-card-label">继续添加</span></div><div style="color:var(--c-primary);font-weight:600">+ 录入新' + (addTextMap[key] || '记录') + '</div></div>'
     + '</div>'
+    + _entryChart(key, records)
     + '<div class="data-table"><div class="data-table-head"><div><div class="data-table-title">' + cfg.title + '</div><div class="data-table-sub">' + cfg.sub + '</div></div></div><table><thead><tr>'
     + cfg.headers.map(function(h) { return '<th>' + h + '</th>'; }).join('')
     + '</tr></thead><tbody>' + rows + '</tbody></table></div>'
