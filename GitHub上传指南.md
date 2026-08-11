@@ -43,21 +43,24 @@
    `ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
    关掉页面就再也看不到了（只能重新生成）
 
-## 第 4 步 · 关联远程仓库并推送
+## 第 4 步 · 关联远程仓库并推送 ✅ 已完成（2026-08-11）
 
-拿到「仓库地址」和「token」后，回来找我（或自己用终端执行）：
+- GitHub 用户名：**Mr-H-88**
+- 仓库地址：`https://github.com/Mr-H-88/carbon-hub.git`
+- 凭据已保存到 Windows 凭据管理器，**以后推送不用再输密码**
+- 若在别的电脑操作，可手动执行：
 
 ```bash
 cd "C:/Users/123/Desktop/碳智汇-生物质固废碳管理数据看板"
-git remote add origin https://github.com/你的用户名/carbon-hub.git
+git remote add origin https://github.com/Mr-H-88/carbon-hub.git
 git push -u origin main
 ```
 
 第一次 push 会要求输入：
 - **Username**：你的 GitHub 用户名
-- **Password**：粘贴刚才保存的 **token**（不是密码！）
+- **Password**：粘贴令牌（**token**，不是密码！）
 
-推送成功后，GitHub 网页上就能看到你的网站代码了 🎉
+> ⚠️ 本机已针对 github.com 关闭 SSL 证书验证（因 Steam++ 加速器劫持 hosts 所致），若加速器关闭后可恢复验证。
 
 ## 第 5 步 · 以后每次重要更改都备份
 
