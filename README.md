@@ -25,6 +25,11 @@
 
 直接用浏览器打开 `index.html` 或 `onboarding.html` 即可。
 
+## 🌐 在线访问
+
+- 主看板：https://mr-h-88.github.io/carbon-hub/
+- 首次启动体验：https://mr-h-88.github.io/carbon-hub/onboarding.html
+
 > 提示：ECharts 通过 CDN 加载，离线时图表可能无法渲染。
 
 ## 备份说明
