@@ -1994,6 +1994,7 @@ const moduleConfig = {
 /* ========== Demo Mode ========== */
 let demoMode = false;
 let _savedOverviewHTML = '';
+let _savedEmptyOverviewHTML = '';
 
 function enterDemoMode() {
   demoMode = true;
@@ -2055,6 +2056,129 @@ function refreshOverviewKPI() {
 }
 /* ========== End 总览 KPI 联动 ========== */
 
+/* ========== 用户数据总览（录入后整体重绘，与演示模式同构） ========== */
+function renderUserOverview() {
+  var ed = window.entryData || { materials: [], pyrolysis: [], pollution: [], analysis: [], carbonsink: [], trading: [] };
+  var hasAny = (ed.materials && ed.materials.length) || (ed.pyrolysis && ed.pyrolysis.length) || (ed.carbonsink && ed.carbonsink.length) || (ed.analysis && ed.analysis.length) || (ed.trading && ed.trading.length);
+  if (!hasAny) {
+    // 无数据：恢复静态空状态 + 刷新 KPI
+    document.getElementById('module-overview').innerHTML = _savedEmptyOverviewHTML;
+    refreshOverviewKPI();
+    return;
+  }
+
+  var matTotal = sumRecords(ed.materials, '库存量（吨）');
+  var batchCount = (ed.pyrolysis || []).length;
+  var sinkTotal = sumRecords(ed.carbonsink, '减排量（tCO₂e）');
+  var tradeAmount = sumAmount(ed.trading || []);
+  var analysisCount = (ed.analysis || []).length;
+
+  // —— 新手引导 4 步动态状态 ——
+  var steps = [
+    { key: 'materials', no: 1, title: '录入第一批原料', desc: '前往【原料管理】添加供应商，并录入首批入库原料', done: (ed.materials || []).length > 0 },
+    { key: 'pyrolysis', no: 2, title: '启动热解批次', desc: '前往【热解制备】配置热解炉，并启动第一个批次', done: batchCount > 0 },
+    { key: 'analysis', no: 3, title: '录入碳核算数据', desc: '前往【碳质分析】上传质检报告，系统自动核算碳汇', done: analysisCount > 0 },
+    { key: 'trading', no: 4, title: '关联碳交易账户', desc: '前往【碳交易市场】关联 CCER 账户并查看交易行情', done: (ed.trading || []).length > 0 }
+  ];
+  var firstPending = -1;
+  steps.forEach(function(s, i) { if (!s.done && firstPending === -1) firstPending = i; });
+  var guideItems = steps.map(function(s, i) {
+    var cls = s.done ? 'done' : (i === firstPending ? 'active' : '');
+    var tagHtml;
+    if (s.done) tagHtml = '<span class="guide-step-tag-active" style="background:var(--c-primary)">已完成</span>';
+    else if (i === firstPending) tagHtml = '<span class="guide-step-tag-active">进行中</span>';
+    else tagHtml = '<span class="guide-step-tag-pending">待开始</span>';
+    return '<div class="guide-step-item ' + cls + '" data-key="' + s.key + '" onclick="gotoGuideStep(\'' + s.key + '\')" title="点击前往' + (i===0?'原料管理':i===1?'热解制备':i===2?'碳质分析':'碳交易市场') + '">'
+      + '<div class="guide-step-badge">' + s.no + '</div>'
+      + '<div class="guide-step-content"><div class="guide-step-row"><span class="guide-step-title">' + s.title + '</span>' + tagHtml + '</div>'
+      + '<div class="guide-step-desc">' + s.desc + '</div></div>'
+      + '<div class="guide-step-arrow"><span>' + (s.done ? '已完成' : '去完成') + '</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M7 4l4 4-4 4"/></svg></div>'
+      + '</div>';
+  }).join('');
+  var guideHtml = '<div class="guide-card guide-card--onboarding"><div class="guide-head">'
+    + '<span class="guide-badge">' + _ic.check + '新手引导  ·  4 步</span>'
+    + '<div class="guide-title">' + (steps.every(function(s){return s.done;}) ? '🎉 初始化已完成，开始碳管理吧！' : '完成初始化，开启碳管理') + '</div>'
+    + '<div class="guide-sub">' + steps.filter(function(s){return s.done;}).length + '/4 已完成 · 按顺序完成，约需 15 分钟</div></div>'
+    + '<div class="guide-step-list">' + guideItems + '</div></div>';
+
+  // —— KPI ——
+  var kpis = [
+    { label: '原料库存总量', ic: _ic.box, c: 'green', v: matTotal.toLocaleString(), u: '吨', sub: (ed.materials||[]).length + ' 种原料' },
+    { label: '热解批次', ic: _ic.fire, c: 'cyan', v: batchCount, u: '个', sub: '已录入批次' },
+    { label: '累计碳汇核算', ic: _ic.leaf, c: 'orange', v: sinkTotal.toLocaleString(), u: 'tCO₂e', sub: (ed.carbonsink||[]).length + ' 笔核算' },
+    { label: 'CCER 收益', ic: _ic.coin, c: 'purple', v: '¥' + tradeAmount.toLocaleString(), u: '', sub: (ed.trading||[]).length + ' 笔交易' }
+  ];
+  var kpiHtml = '<div class="kpi-row">' + kpis.map(function(k) {
+    return '<div class="kpi-card"><div class="kpi-head"><span class="kpi-label">' + k.label + '</span><div class="kpi-icon ' + k.c + '">' + k.ic + '</div></div>'
+      + '<div class="kpi-value-row"><span class="kpi-value" style="color:var(--c-green-deep)">' + k.v + '</span>' + (k.u ? '<span class="kpi-unit">' + k.u + '</span>' : '') + '</div>'
+      + '<div class="kpi-sub" style="font-size:11px;color:var(--c-text-3)">' + k.sub + '</div></div>';
+  }).join('') + '</div>';
+
+  // —— 减排趋势图（用核算数据）——
+  var sinkRecords = ed.carbonsink || [];
+  var chartHtml = '';
+  if (sinkRecords.length) {
+    var bars = sinkRecords.slice(0, 12).map(function(r) {
+      return { v: parseFloat(r['减排量（tCO₂e）']) || 0, l: r['核算周期'] || '—' };
+    });
+    var maxB = 1;
+    bars.forEach(function(b) { if (b.v > maxB) maxB = b.v; });
+    var cum = 0, cumPoints = [];
+    bars.forEach(function(b) { cum += b.v; cumPoints.push({ v: cum }); });
+    var comboBarHtml = '<div class="chart-bars combo-bars">' + bars.map(function(b) {
+      var pct = Math.round(b.v / maxB * 84);
+      return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div></div>';
+    }).join('') + '</div>';
+    var comboLineHtml = '<div class="combo-line">' + _lineChart(cumPoints, { color: '#05B5D4', height: '100%', align: 'bar', labels: false, grid: false, padY: 3 }) + '</div>';
+    var comboLabelsHtml = '<div class="combo-labels">' + bars.map(function(b, i) {
+      var lx = ((i + 0.5) / bars.length * 100).toFixed(2);
+      return '<span class="combo-label" style="left:' + lx + '%">' + b.l + '</span>';
+    }).join('') + '</div>';
+    chartHtml = '<div class="main-row"><div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">减排趋势</div><div class="card-sub">碳汇核算数据（tCO₂e）</div></div></div>'
+      + '<div class="chart-area"><div class="combo-chart">' + comboBarHtml + comboLineHtml + comboLabelsHtml + '</div>'
+      + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>减排量（tCO₂e）</span><span><span class="chart-legend-dot" style="background:var(--c-cyan);border-radius:50%"></span>累计趋势</span><span>累计 ' + cum + ' tCO₂e</span></div></div></div>';
+  } else {
+    chartHtml = '<div class="main-row"><div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">减排趋势</div><div class="card-sub">碳汇核算数据</div></div></div><div class="chart-empty"><div class="chart-empty-icon">' + _ic.chart + '</div><div class="chart-empty-text">暂无减排数据</div><div class="chart-empty-hint">在【碳汇核算】录入数据后自动生成</div></div></div>';
+  }
+
+  // —— 热解运行状态 ——
+  var reactors = (ed.pyrolysis || []).slice(0, 3);
+  var reactorHtml = '';
+  if (reactors.length) {
+    reactorHtml = '<div class="reactor-list">' + reactors.map(function(r) {
+      return '<div class="reactor-item"><div class="reactor-dot running"></div><div class="reactor-info"><div class="reactor-name">' + (r['批次号'] || '批次') + '</div><div class="reactor-meta">' + (r['原料'] || '—') + '</div></div><div class="reactor-temp">' + (r['温度（°C）'] || '—') + '°C</div></div>';
+    }).join('') + '</div>';
+  } else {
+    reactorHtml = '<div class="reactor-empty"><div class="reactor-empty-icon">' + _ic.fire + '</div><div class="reactor-empty-text">尚未录入热解批次</div></div>';
+  }
+  var reactorCardHtml = '<div class="reactor-card"><div class="card-head"><div class="card-head-left"><div class="card-title">热解运行状态</div><div class="card-sub">批次运行监控</div></div><span class="reactor-more" onclick="switchModule(\'pyrolysis\')">查看全部</span></div>' + reactorHtml + '</div>';
+  chartHtml += reactorCardHtml + '</div>';
+
+  // —— 最新动态时间线（汇总各模块录入事件）——
+  var events = [];
+  (ed.materials || []).forEach(function(r, i) {
+    events.push({ dot: 'cyan', tag: 'cyan', tagText: '入库', event: '原料入库 · ' + (r['原料名称'] || '—') + ' ' + (r['库存量（吨）'] || '') + ' 吨', time: '第 ' + (i + 1) + ' 批' });
+  });
+  (ed.pyrolysis || []).forEach(function(r) {
+    events.push({ dot: 'green', tag: 'green', tagText: '热解', event: '热解批次 ' + (r['批次号'] || '—') + ' 启动，温度 ' + (r['温度（°C）'] || '—') + '°C', time: r['开始时间'] || '—' });
+  });
+  (ed.analysis || []).forEach(function(r) {
+    events.push({ dot: 'orange', tag: 'orange', tagText: '质检', event: '质检报告 ' + (r['样品编号'] || '—') + ' 上传，碳含量 ' + (r['碳含量（%）'] || '—') + '%', time: '—' });
+  });
+  (ed.trading || []).forEach(function(r) {
+    events.push({ dot: 'purple', tag: 'purple', tagText: '交易', event: 'CCER ' + (r['交易类型'] || '') + ' ' + (r['数量（tCO₂e）'] || '') + ' tCO₂e @ ¥' + (r['单价（元/t）'] || '') + '/t', time: r['交易时间'] || '—' });
+  });
+  events = events.slice(0, 8);
+  var tlHtml = '<div class="tl-list">' + events.map(function(e) {
+    return '<div class="tl-item"><div class="tl-dot ' + e.dot + '"></div><div class="tl-body"><div class="tl-event">' + e.event + '<span class="tl-tag ' + e.tag + '">' + e.tagText + '</span></div><div class="tl-time">' + e.time + '</div></div></div>';
+  }).join('') + '</div>';
+  var timelineHtml = '<div class="timeline-card"><div class="card-head"><div class="card-head-left"><div class="card-title">最新动态</div><div class="card-sub">系统事件时间线</div></div><span class="tl-badge">' + events.length + ' 条</span></div>' + tlHtml + '</div>';
+
+  document.getElementById('module-overview').innerHTML =
+    '<div class="module-page">' + guideHtml + kpiHtml + chartHtml + '<div class="bottom-row">' + timelineHtml + '</div>' + '</div>';
+}
+/* ========== End 用户数据总览 ========== */
+
 function switchModule(key) {
   const config = moduleConfig[key];
   if (!config) return;
@@ -2072,7 +2196,7 @@ function switchModule(key) {
     if (demoMode) {
       overviewEl.innerHTML = getDemoOverview();
     } else {
-      refreshOverviewKPI();
+      renderUserOverview();
     }
   } else {
     overviewEl.style.display = 'none';
@@ -2566,11 +2690,10 @@ function submitEntry(key) {
   };
   showToast(nextHints[key] || '已保存');
   if (demoMode) return;
-  // 非演示模式：重新渲染当前模块 + 刷新总览 KPI
+  // 非演示模式：重新渲染当前模块；总览由 switchModule/renderUserOverview 整体重绘
   const dynamicEl = document.getElementById('module-dynamic');
   const currentKey = document.querySelector('.sidebar-nav-item.active') ? document.querySelector('.sidebar-nav-item.active').dataset.module : key;
   if (dynamicEl && currentKey === key) dynamicEl.innerHTML = getModuleContent(key);
-  refreshOverviewKPI();
 }
 /* ========== End Entry Modal ========== */
 
@@ -3190,6 +3313,8 @@ function getDemoModule(key) {
 }
 
 /* ========== Init ========== */
+// 保存静态空状态总览 HTML（供无录入数据时恢复）
+_savedEmptyOverviewHTML = document.getElementById('module-overview').innerHTML;
 renderSetupStep(1);
 </script>
 </body>
