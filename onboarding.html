@@ -2246,8 +2246,8 @@ function jumpToModule(key, msg) {
 // 为录入数据生成图表（复用现有 chart-bars / hbar / donut 组件）
 function _entryChart(key, records) {
   if (!records || !records.length) return '';
-  var titleMap = { materials: '原料库存分布', pyrolysis: '批次温度分布', pollution: '监测方案覆盖', analysis: '样品碳含量分布', carbonsink: '各期减排量', trading: '交易金额分布' };
-  var subMap = { materials: '各原料库存量（吨）', pyrolysis: '各批次热解温度（°C）', pollution: '各监测项目配置情况', analysis: '样品碳含量（%）', carbonsink: '各核算周期减排量（tCO₂e）', trading: '各笔交易金额（元）' };
+  var titleMap = { materials: '原料库存分布', pyrolysis: '批次温度分布', pollution: '监测指标实测', analysis: '样品碳含量分布', carbonsink: '各期减排量', trading: '交易金额分布' };
+  var subMap = { materials: '各原料库存量（吨）', pyrolysis: '各批次热解温度（°C）', pollution: '各监测指标实测值 / 排放限值', analysis: '样品碳含量（%）', carbonsink: '各核算周期减排量（tCO₂e）', trading: '各笔交易金额（元）' };
   var barHtml = '';
   var maxV = 0, i;
 
@@ -2348,44 +2348,62 @@ function renderEntryData(key, records) {
       var pct = matTotal ? (v / matTotal * 100).toFixed(1) : 0;
       return '<div class="hbar-item"><div class="hbar-head"><span class="hbar-name">' + t + '</span><span class="hbar-val">' + v + ' 吨 · ' + pct + '%</span></div><div class="hbar-track"><div class="hbar-fill" style="width:' + pct + '%"></div></div></div>';
     }).join('') + '</div></div></div>';
+    // 预警原料：库存 <100 的原料（与演示同构）
+    var warnNames = [];
+    records.forEach(function(r) { var q = parseFloat(r['库存量（吨）']) || 0; if (q < 100) warnNames.push(r['原料名称'] || '—'); });
+    var warnSub = warnNames.length ? warnNames.slice(0, 3).join('、') : '暂无预警';
     statRowHtml = _statRow([
       {label:'库存总量', v: matTotal.toLocaleString(), u:'吨', c:'green', ic:_ic.box},
-      {label:'原料种类', v: records.length, u:'种', c:'cyan', ic:_ic.box, s:'共录入 ' + records.length + ' 条'},
-      {label:'平均库存', v: Math.round(matTotal / records.length), u:'吨', c:'orange', ic:_ic.trend, s:'按录入原料平均'},
+      {label:'预警原料', v: warnNames.length, u:'种', c:'orange', ic:_ic.alert, s: warnSub},
+      {label:'原料种类', v: uniqueCount(records, '原料名称'), u:'种', c:'cyan', ic:_ic.down, s:'共录入 ' + records.length + ' 条'},
       {label:'供应商', v: uniqueCount(records, '供应商'), u:'家', c:'purple', ic:_ic.users}
     ]);
     extra = matChart;
     tableHtml = _table('原料库存清单', '共 ' + records.length + ' 条记录', [
-      {t:'原料名称'},{t:'类型'},{t:'库存量(吨)',n:true},{t:'供应商'},{t:'状态'}
+      {t:'原料名称'},{t:'类型'},{t:'库存量(吨)',n:true},{t:'状态'},{t:'供应商'},{t:'最近入库'}
     ], records.map(function(r) {
       var q = parseFloat(r['库存量（吨）']) || 0;
       var tag = q <= 0 ? '<span class="tag danger">缺货</span>' : (q < 100 ? '<span class="tag warning">预警</span>' : '<span class="tag success">正常</span>');
-      return [r['原料名称'] || '—', r['原料类型'] || '—', r['库存量（吨）'] || '0', r['供应商'] || '—', tag];
+      return [r['原料名称'] || '—', r['原料类型'] || '—', r['库存量（吨）'] || '0', tag, r['供应商'] || '—', r['最近入库'] || '—'];
     }));
   }
 
   if (key === 'pyrolysis') {
     var pyTotal = records.length;
-    var tempBars = records.slice(0, 12).map(function(r) {
-      return { v: parseFloat(r['温度（°C）']) || 0, l: r['批次号'] || '—' };
-    });
-    var pyMax = 1;
-    tempBars.forEach(function(b) { if (b.v > pyMax) pyMax = b.v; });
-    var pyChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">批次温度分布</div><div class="card-sub">已录入批次热解温度（°C）</div></div></div><div class="chart-area"><div class="chart-bars" style="min-height:140px">' + tempBars.map(function(b) {
-      var pct = Math.round(b.v / pyMax * 100);
-      return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div><span class="chart-bar-label">' + b.l + '</span></div>';
-    }).join('') + '</div><div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>批次温度</span><span>均值：' + avgRecords(records, '温度（°C）') + '°C</span></div></div></div>';
+    // 运行中批次（状态缺省按运行中计）
+    var runningN = 0;
+    records.forEach(function(r) { if ((r['状态'] || '运行中') === '运行中') runningN++; });
+    var lastRec = records[records.length - 1] || {};
+    var avgTemp = avgRecords(records, '温度（°C）');
+    // 折线图：批次温度趋势（与演示同类型），自动标最高/最低温
+    var tempPoints = records.map(function(r) { return { v: parseFloat(r['温度（°C）']) || 0, l: r['批次号'] || '—' }; });
+    var tMaxI = 0, tMinI = 0;
+    for (var ti = 0; ti < tempPoints.length; ti++) {
+      if (tempPoints[ti].v > tempPoints[tMaxI].v) tMaxI = ti;
+      if (tempPoints[ti].v < tempPoints[tMinI].v) tMinI = ti;
+    }
+    var tMaxV = tempPoints.length ? tempPoints[tMaxI].v : 0;
+    var tMinV = tempPoints.length ? tempPoints[tMinI].v : 0;
+    var pyMarks = [];
+    if (tempPoints.length > 1) {
+      pyMarks.push({i: tMaxI, color:'var(--c-orange)', label: tMaxV + '°C'});
+      pyMarks.push({i: tMinI, color:'var(--c-cyan)', label: tMinV + '°C'});
+    }
+    var pyLine = _lineChart(tempPoints, {color:'#0FBA82', height:150, min: Math.max(0, Math.floor(tMinV - 15)), max: Math.ceil(tMaxV + 15), marks: pyMarks});
+    var pyChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">批次温度趋势</div><div class="card-sub">已录入批次热解温度（°C）</div></div></div><div class="chart-area">' + pyLine + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary);border-radius:50%"></span>温度趋势</span><span>均值 ' + avgTemp + '°C</span></div></div></div>';
     statRowHtml = _statRow([
       {label:'总批次', v: pyTotal, u:'个', c:'green', ic:_ic.fire},
-      {label:'平均温度', v: avgRecords(records, '温度（°C）'), u:'°C', c:'cyan', ic:_ic.gauge, s:'已录入 ' + pyTotal + ' 个批次'},
-      {label:'最高温度', v: maxRecords(records, '温度（°C）'), u:'°C', c:'orange', ic:_ic.trend},
+      {label:'运行中', v: runningN, u:'个批次', c:'cyan', ic:_ic.bolt, s:'最新 ' + (lastRec['批次号'] || '—')},
+      {label:'平均温度', v: avgTemp, u:'°C', c:'orange', ic:_ic.trend},
       {label:'原料种类', v: uniqueCount(records, '原料'), u:'种', c:'purple', ic:_ic.box}
     ]);
     extra = pyChart;
     tableHtml = _table('热解批次记录', '已录入 ' + pyTotal + ' 个批次', [
-      {t:'批次号'},{t:'原料'},{t:'温度(°C)',n:true},{t:'开始时间'}
+      {t:'批次号'},{t:'状态'},{t:'原料'},{t:'温度(°C)',n:true},{t:'产率(%)',n:true},{t:'开始时间'}
     ], records.map(function(r) {
-      return [r['批次号'] || '—', r['原料'] || '—', r['温度（°C）'] || '—', r['开始时间'] || '—'];
+      var st = r['状态'] || '运行中';
+      var tag = st === '运行中' ? '<span class="tag success">运行中</span>' : '<span class="tag neutral">已完成</span>';
+      return [r['批次号'] || '—', tag, r['原料'] || '—', r['温度（°C）'] || '—', r['产率（%）'] || '—', r['开始时间'] || '—'];
     }));
   }
 
@@ -2412,62 +2430,136 @@ function renderEntryData(key, records) {
       + '<div class="donut-legend-item"><span class="donut-legend-dot" style="background:var(--c-red)"></span>非达标样品 <strong>' + failN + '</strong><span class="pct">' + anFailPct + '%</span></div>'
       + '</div></div>';
     extra = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">样品达标分布</div><div class="card-sub">碳含量 ≥70% 计为达标 · ' + anTotal + ' 个样品</div></div></div><div class="chart-area">' + donut + '</div></div>';
+    // 非达标原因推导（灰分>10 → 灰分偏高；碳<70 → 碳含量低；热值<24 → 热值偏低）
+    // 仅收集非达标样品（碳含量 <70），保证明细面板与表格/统计卡口径一致
+    var failRows = [];
+    records.forEach(function(r) {
+      var c = parseFloat(r['碳含量（%）']);
+      var a = parseFloat(r['灰分（%）']);
+      var h = parseFloat(r['热值（MJ/kg）']);
+      if (!isNaN(c) && c >= 70) return;
+      var reasons = [], meas = [], std = [], advices = [];
+      if (!isNaN(a) && a > 10) { reasons.push('灰分偏高 ' + a + '%'); meas.push('灰分 ' + a + '%'); std.push('灰分 ≤ 10.0%'); advices.push('增加烘干工序，降低原料含水率'); }
+      if (!isNaN(c) && c < 70) { reasons.push('碳含量低'); meas.push('碳 ' + c + '%'); std.push('碳 ≥ 75.0%'); advices.push('调整原料配比，增加高碳原料占比'); }
+      if (!isNaN(h) && h < 24) { reasons.push('热值偏低'); meas.push('热值 ' + h + ' MJ/kg'); std.push('热值 ≥ 24.0 MJ/kg'); advices.push('提高热解温度并延长保温时间'); }
+      if (!reasons.length) { reasons.push('碳含量未达标'); meas.push('碳 ' + c + '%'); std.push('碳 ≥ 75.0%'); advices.push('调整原料配比，增加高碳原料占比'); }
+      failRows.push({ sample: r['样品编号'] || '—', batch: r['所属批次'] || '—', reason: reasons.join(' · '), meas: meas.join(' / '), std: std.join(' / '), advice: advices.join('；') });
+    });
+    // 有非达标样品才输出可点击统计卡 + 明细面板（与演示同构）
+    var failStat = { label:'非达标', v: failN, u:'个', c:'red', ic:_ic.alert, s: failN ? '点击查看明细' : '全部达标' };
+    if (failN > 0) {
+      failStat.key = 'nonpass';
+      failStat.clickable = true;
+      var npRows = failRows.map(function(f) {
+        return '<tr><td>' + f.sample + '</td><td>' + f.batch + '</td><td style="color:var(--c-red);font-weight:600">' + f.reason + '</td><td>' + f.meas + '</td><td>' + f.std + '</td><td>' + f.advice + '</td></tr>';
+      }).join('');
+      var nonpassHtml = '<div class="nonpass-panel" id="nonpass-panel"><div class="data-table"><div class="nonpass-head"><div class="nonpass-title">' + _ic.alert + '非达标样品明细（' + failRows.length + ' 条）</div><button class="nonpass-close" onclick="toggleNonpassPanel(false)" title="收起"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3l8 8M11 3l-8 8"/></svg></button></div><table><thead><tr><th>样品编号</th><th>批次</th><th>超标指标</th><th>实测值</th><th>标准值</th><th>整改建议</th></tr></thead><tbody>' + npRows + '</tbody></table></div></div>';
+      extra = nonpassHtml + extra;
+    }
     statRowHtml = _statRow([
       {label:'总样品数', v: anTotal, u:'个', c:'green', ic:_ic.flask},
       {label:'达标', v: passN, u:'个', c:'cyan', ic:_ic.check, s:'达标率 ' + anPassPct + '%'},
-      {label:'非达标', v: failN, u:'个', c:'red', ic:_ic.alert, s:'碳含量 <70%'},
+      failStat,
       {label:'平均碳含量', v: avgRecords(records, '碳含量（%）'), u:'%', c:'orange', ic:_ic.trend, s:anTotal + ' 个样品均值'}
     ]);
-    tableHtml = _table('质检报告记录', '已上传 ' + anTotal + ' 份', [
-      {t:'样品编号'},{t:'所属批次'},{t:'碳含量(%)',n:true},{t:'灰分(%)',n:true},{t:'热值(MJ/kg)',n:true},{t:'状态'}
-    ], records.map(function(r) {
+    // 自定义表格（非达标行浅红底纹 + 状态格附原因，与演示一致）
+    var anTableRows = records.map(function(r) {
       var c = parseFloat(r['碳含量（%）']);
-      var tag = (!isNaN(c) && c >= 70) ? '<span class="tag success">达标</span>' : '<span class="tag danger">非达标</span>';
-      return [r['样品编号'] || '—', r['所属批次'] || '—', r['碳含量（%）'] || '—', r['灰分（%）'] || '—', r['热值（MJ/kg）'] || '—', tag];
-    }));
+      var a = parseFloat(r['灰分（%）']);
+      var h = parseFloat(r['热值（MJ/kg）']);
+      var ok = !isNaN(c) && c >= 70;
+      var tag = ok ? '<span class="tag success">达标</span>' : '<span class="tag danger">非达标</span>';
+      var reason = '';
+      if (!ok) {
+        var rs = [];
+        if (!isNaN(a) && a > 10) rs.push('灰分偏高 ' + a + '%');
+        if (!isNaN(c) && c < 70) rs.push('碳含量低');
+        if (!isNaN(h) && h < 24) rs.push('热值偏低');
+        if (!rs.length) rs.push('碳含量未达标');
+        reason = '<div class="stat-card-sub" style="color:var(--c-red)">' + rs.join(' · ') + '</div>';
+      }
+      var rowHtml = '<tr' + (!ok ? ' style="background:rgba(239,68,68,0.04)"' : '') + '>';
+      rowHtml += '<td>' + (r['样品编号'] || '—') + '</td><td>' + (r['所属批次'] || '—') + '</td>';
+      rowHtml += '<td class="r">' + (r['碳含量（%）'] || '—') + '</td><td class="r">' + (r['灰分（%）'] || '—') + '</td>';
+      rowHtml += '<td class="r">' + (r['挥发分（%）'] || '—') + '</td><td class="r">' + (r['热值（MJ/kg）'] || '—') + '</td>';
+      rowHtml += '<td>' + tag + reason + '</td></tr>';
+      return rowHtml;
+    }).join('');
+    tableHtml = '<div class="data-table"><div class="data-table-head"><div><div class="data-table-title">质检样品记录</div><div class="data-table-sub">共 ' + anTotal + ' 条记录 · ' + passN + ' 达标 / ' + failN + ' 非达标</div></div></div><table><thead><tr><th>样品编号</th><th>批次</th><th class="r">碳含量(%)</th><th class="r">灰分(%)</th><th class="r">挥发分(%)</th><th class="r">热值(MJ/kg)</th><th>状态</th></tr></thead><tbody>' + anTableRows + '</tbody></table></div>';
   }
 
   if (key === 'pollution') {
-    var freqCount = {};
-    records.forEach(function(r) { var f = r['监测频率'] || '其他'; freqCount[f] = (freqCount[f] || 0) + 1; });
-    var maxF = 1;
-    Object.keys(freqCount).forEach(function(f) { if (freqCount[f] > maxF) maxF = freqCount[f]; });
-    var polChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">监测方案覆盖</div><div class="card-sub">各监测频率配置情况</div></div></div><div class="chart-area"><div class="hbar-list">' + Object.keys(freqCount).map(function(f) {
-      var pct = Math.round(freqCount[f] / maxF * 100);
-      return '<div class="hbar-item"><div class="hbar-head"><span class="hbar-name">' + f + '</span><span class="hbar-val">' + freqCount[f] + ' 项</span></div><div class="hbar-track"><div class="hbar-fill" style="width:' + pct + '%"></div></div></div>';
+    // 单位映射：SO₂/NOx/粉尘→mg/m³；COD/氨氮→mg/L；噪音→dB
+    var unitMap = { 'SO₂': 'mg/m³', 'NOx': 'mg/m³', '粉尘': 'mg/m³', 'COD': 'mg/L', '氨氮': 'mg/L', '噪音': 'dB' };
+    var monitors = records.map(function(r) {
+      var name = r['监测指标'] || '—';
+      var value = parseFloat(r['实测值']);
+      var limit = parseFloat(r['排放限值']);
+      var unit = unitMap[name] || '';
+      var pct = (!isNaN(value) && !isNaN(limit) && limit > 0) ? Math.round(value / limit * 100) : 0;
+      return { name: name, value: isNaN(value) ? (r['实测值'] || '—') : value, unit: unit, limit: isNaN(limit) ? (r['排放限值'] || '—') : limit, pct: pct, freq: r['监测频率'] || '—', owner: r['负责人'] || '—' };
+    });
+    var polTotal = monitors.length;
+    var polPass = 0, polWarn = 0;
+    monitors.forEach(function(m) { if (m.pct < 100) polPass++; if (m.pct >= 70) polWarn++; });
+    var passRate = polTotal ? Math.round(polPass / polTotal * 100) : 0;
+    var freqN = uniqueCount(records, '监测频率');
+    // 图表：排放浓度占用率（实测值/限值）
+    var monChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">排放浓度占用率</div><div class="card-sub">实测值 / 排放限值（%）</div></div></div><div class="chart-area"><div class="hbar-list">' + monitors.map(function(m) {
+      var warnCls = m.pct >= 70 ? ' warn' : '';
+      return '<div class="hbar-item"><div class="hbar-head"><span class="hbar-name">' + m.name + '</span><span class="hbar-val">' + m.value + ' ' + m.unit + ' / ≤ ' + m.limit + '</span></div><div class="hbar-track"><div class="hbar-fill' + warnCls + '" style="width:' + m.pct + '%"></div></div></div>';
     }).join('') + '</div></div></div>';
-    extra = polChart;
+    // monitor-grid 监测卡（与演示同构）
+    var monitorHtml = '<div class="monitor-grid">' + monitors.map(function(m) {
+      var tag = m.pct >= 100 ? '<span class="tag danger">超标</span>' : '<span class="tag success">达标</span>';
+      var fillCls = m.pct >= 100 ? 'warn' : 'ok';
+      return '<div class="monitor-card"><div class="monitor-card-head"><span class="monitor-card-name">' + m.name + '</span>' + tag + '</div><div><span class="monitor-card-value">' + m.value + '</span><span class="monitor-card-unit">' + m.unit + '</span></div><div class="monitor-card-bar"><div class="monitor-card-bar-fill ' + fillCls + '" style="width:' + m.pct + '%"></div></div><div class="stat-card-sub">排放限值 ≤ ' + m.limit + '</div></div>';
+    }).join('') + '</div>';
+    extra = monChart + '<div class="module-page" style="gap:16px">' + monitorHtml + '</div>';
     statRowHtml = _statRow([
-      {label:'方案总数', v: records.length, u:'项', c:'green', ic:_ic.shield},
-      {label:'监测项目', v: uniqueCount(records, '监测项目'), u:'类', c:'cyan', ic:_ic.gauge, s:'不同监测项目'},
-      {label:'监测频率', v: Object.keys(freqCount).length, u:'种', c:'orange', ic:_ic.clock, s:'覆盖频率类型'},
-      {label:'责任人', v: uniqueCount(records, '负责人'), u:'人', c:'purple', ic:_ic.users}
+      {label:'达标率', v: passRate, u:'%', c:'green', ic:_ic.shield},
+      {label:'监测指标', v: polTotal, u:'项', c:'cyan', ic:_ic.check, s: polWarn ? '含接近限值指标' : '全部达标'},
+      {label:'监测频率', v: freqN, u:'种', c:'orange', ic:_ic.gauge},
+      {label:'预警指标', v: polWarn, u:'项', c:'purple', ic:_ic.alert, s: polWarn ? '接近/超过限值' : '无预警'}
     ]);
-    tableHtml = _table('监测方案清单', '已配置 ' + records.length + ' 项', [
-      {t:'监测项目'},{t:'排放限值依据'},{t:'监测频率'},{t:'负责人'}
-    ], records.map(function(r) {
-      return [r['监测项目'] || '—', r['排放限值依据'] || '—', r['监测频率'] || '—', r['负责人'] || '—'];
+    // 明细表：监测指标/实测值/限值/频率/负责人
+    tableHtml = _table('监测指标明细', '已录入 ' + polTotal + ' 项监测指标', [
+      {t:'监测指标'},{t:'实测值',n:true},{t:'排放限值',n:true},{t:'监测频率'},{t:'负责人'}
+    ], monitors.map(function(m) {
+      return [m.name, m.value + ' ' + m.unit, '≤ ' + m.limit, m.freq, m.owner];
     }));
   }
 
   if (key === 'carbonsink') {
     var sinkTotal = sumRecords(records, '减排量（tCO₂e）');
-    var sinkBars = records.slice(0, 12).map(function(r) {
-      return { v: parseFloat(r['减排量（tCO₂e）']) || 0, l: r['核算周期'] || '—' };
-    });
+    var lastSink = records[records.length - 1] || {};
+    var lastSinkVal = parseFloat(lastSink['减排量（tCO₂e）']) || 0;
     var sinkMax = 1;
-    sinkBars.forEach(function(b) { if (b.v > sinkMax) sinkMax = b.v; });
-    var sinkChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">各期减排量</div><div class="card-sub">各核算周期减排量（tCO₂e）</div></div></div><div class="chart-area"><div class="chart-bars" style="min-height:140px">' + sinkBars.map(function(b) {
-      var pct = Math.round(b.v / sinkMax * 100);
-      return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div><span class="chart-bar-label">' + b.l + '</span></div>';
-    }).join('') + '</div><div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>减排量（tCO₂e）</span><span>累计 ' + sinkTotal + ' tCO₂e</span></div></div></div>';
-    extra = sinkChart;
+    records.forEach(function(r) { var v = parseFloat(r['减排量（tCO₂e）']) || 0; if (v > sinkMax) sinkMax = v; });
+    var sinkCum = 0, cumPoints = [];
+    records.forEach(function(r) { sinkCum += parseFloat(r['减排量（tCO₂e）']) || 0; cumPoints.push({v: sinkCum, l: r['核算周期'] || '—'}); });
+    var nSink = records.length;
+    // combo 柱+折线（与演示同构）
+    var comboHtml = '<div class="combo-chart">'
+      + '<div class="chart-bars combo-bars">' + records.map(function(b) {
+        var v = parseFloat(b['减排量（tCO₂e）']) || 0;
+        var pct = Math.round(v / sinkMax * 84);
+        return '<div class="chart-bar-group"><span class="chart-bar-value">' + v + '</span><div class="chart-bar" style="height:' + pct + '%"></div></div>';
+      }).join('') + '</div>'
+      + '<div class="combo-line">' + _lineChart(cumPoints, {color:'#05B5D4', height:'100%', align:'bar', labels:false, grid:false, padY:3}) + '</div>'
+      + '<div class="combo-labels">' + records.map(function(b, i) {
+        var lx = ((i + 0.5) / nSink * 100).toFixed(2);
+        return '<span class="combo-label" style="left:' + lx + '%">' + (b['核算周期'] || '—') + '</span>';
+      }).join('') + '</div>'
+      + '</div>';
+    var sinkChart = '<div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">月度减排趋势</div><div class="card-sub">各核算周期减排量（tCO₂e）</div></div></div><div class="chart-area">' + comboHtml + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>减排量（tCO₂e）</span><span><span class="chart-legend-dot" style="background:var(--c-cyan);border-radius:50%"></span>累计减排趋势</span><span>累计 ' + sinkTotal + ' tCO₂e</span></div></div></div>';
     statRowHtml = _statRow([
       {label:'累计减排量', v: sinkTotal.toLocaleString(), u:'tCO₂e', c:'green', ic:_ic.leaf},
-      {label:'核算笔数', v: records.length, u:'笔', c:'cyan', ic:_ic.trend, s:'已录入 ' + records.length + ' 期'},
-      {label:'平均减排', v: avgRecords(records, '减排量（tCO₂e）'), u:'tCO₂e', c:'orange', ic:_ic.scale},
-      {label:'核算方法', v: uniqueCount(records, '核算方法'), u:'种', c:'purple', ic:_ic.check}
+      {label:'最近一期减排', v: lastSinkVal, u:'tCO₂e', c:'cyan', ic:_ic.trend, s:'最新一期 ' + (lastSink['核算周期'] || '—')},
+      {label:'核算方法', v: uniqueCount(records, '核算方法'), u:'种', c:'orange', ic:_ic.scale},
+      {label:'核算笔数', v: records.length, u:'笔', c:'purple', ic:_ic.check}
     ]);
+    extra = sinkChart;
     tableHtml = _table('碳汇核算记录', '已核算 ' + records.length + ' 笔', [
       {t:'核算周期'},{t:'减排量(tCO₂e)',n:true},{t:'核算方法'},{t:'核算说明'}
     ], records.map(function(r) {
@@ -2477,23 +2569,43 @@ function renderEntryData(key, records) {
 
   if (key === 'trading') {
     var tradeTotal = sumAmount(records);
-    var tBars = records.slice(0, 12).map(function(r) {
-      var qty = parseFloat(r['数量（tCO₂e）']), price = parseFloat(r['单价（元/t）']);
-      return { v: (!isNaN(qty) && !isNaN(price)) ? qty * price : 0, l: r['交易时间'] || '—' };
-    });
-    var tMax = 1;
-    tBars.forEach(function(b) { if (b.v > tMax) tMax = b.v; });
-    var tChart = '<div class="chart-card chart-slim"><div class="card-head"><div class="card-head-left"><div class="card-title">交易金额分布</div><div class="card-sub">各笔交易金额（元）</div></div></div><div class="chart-area"><div class="chart-bars" style="min-height:140px">' + tBars.map(function(b) {
-      var pct = Math.round(b.v / tMax * 100);
-      return '<div class="chart-bar-group"><span class="chart-bar-value">' + b.v + '</span><div class="chart-bar" style="height:' + pct + '%"></div><span class="chart-bar-label">' + b.l + '</span></div>';
-    }).join('') + '</div><div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>交易金额</span><span>累计 ¥' + tradeTotal.toLocaleString() + '</span></div></div></div>';
-    extra = tChart;
+    var volTotal = sumRecords(records, '数量（tCO₂e）');
+    var avgPrice = avgRecords(records, '单价（元/t）');
+    var lastTrade = records[records.length - 1] || {};
+    var lastPrice = parseFloat(lastTrade['单价（元/t）']);
+    var lastPriceStr = isNaN(lastPrice) ? '—' : '¥' + lastPrice;
+    // 折线图：CCER 价格走势（单价序列，与演示同构）
+    var pricePoints = records.map(function(r) { return { v: parseFloat(r['单价（元/t）']) || 0, l: r['交易时间'] || '—' }; });
+    var pMinI = 0, pMaxI = 0;
+    for (var pi = 0; pi < pricePoints.length; pi++) {
+      if (pricePoints[pi].v > pricePoints[pMaxI].v) pMaxI = pi;
+      if (pricePoints[pi].v < pricePoints[pMinI].v) pMinI = pi;
+    }
+    var pMaxV = pricePoints.length ? pricePoints[pMaxI].v : 0;
+    var pMinV = pricePoints.length ? pricePoints[pMinI].v : 0;
+    var priceMarks = [];
+    if (pricePoints.length > 1) {
+      priceMarks.push({i: pMaxI, color:'var(--c-orange)', label:'¥' + pMaxV});
+      priceMarks.push({i: pMinI, color:'var(--c-cyan)', label:'¥' + pMinV});
+    }
+    // 较上一笔涨跌（只有一笔时不显示）
+    var diffSub = '';
+    if (records.length > 1) {
+      var prevPrice = parseFloat(records[records.length - 2]['单价（元/t）']);
+      if (!isNaN(lastPrice) && !isNaN(prevPrice)) {
+        var diff = Math.round((lastPrice - prevPrice) * 10) / 10;
+        diffSub = '较上一笔 ' + (diff >= 0 ? '+' : '') + diff + ' 元';
+      }
+    }
+    var priceLine = _lineChart(pricePoints, {color:'#0FBA82', height:'100%', min: Math.max(0, Math.floor(pMinV - 3)), max: Math.ceil(pMaxV + 3), labelStep: 1, marks: priceMarks});
+    var tChart = '<div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">CCER 价格走势</div><div class="card-sub">用户交易记录单价（元/tCO₂e）</div></div><div style="font-size:20px;font-weight:700;color:var(--c-primary)">' + lastPriceStr + '</div></div><div class="chart-area">' + priceLine + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary);border-radius:50%"></span>成交单价</span><span><span class="chart-legend-dot" style="background:var(--c-orange);border-radius:50%"></span>区间高点</span><span><span class="chart-legend-dot" style="background:var(--c-cyan);border-radius:50%"></span>区间低点</span><span>区间 ¥' + pMinV + ' — ¥' + pMaxV + '</span></div></div></div>';
     statRowHtml = _statRow([
-      {label:'累计成交额', v: '¥' + tradeTotal.toLocaleString(), c:'green', ic:_ic.coin},
-      {label:'交易笔数', v: records.length, u:'笔', c:'cyan', ic:_ic.trend},
-      {label:'累计成交量', v: sumRecords(records, '数量（tCO₂e）'), u:'tCO₂e', c:'orange', ic:_ic.box},
-      {label:'平均单价', v: avgRecords(records, '单价（元/t）'), u:'元/t', c:'purple', ic:_ic.target}
+      {label:'当前价格', v: lastPriceStr, u:'/tCO₂e', c:'green', ic:_ic.coin, s: diffSub},
+      {label:'累计成交量', v: volTotal, u:'tCO₂e', c:'cyan', ic:_ic.box},
+      {label:'累计成交额', v: '¥' + tradeTotal.toLocaleString(), c:'orange', ic:_ic.trend},
+      {label:'平均单价', v: avgPrice, u:'元/t', c:'purple', ic:_ic.coin}
     ]);
+    extra = tChart;
     tableHtml = _table('碳交易记录', '已记录 ' + records.length + ' 笔', [
       {t:'交易时间'},{t:'类型'},{t:'数量(tCO₂e)',n:true},{t:'单价(元)',n:true},{t:'金额(元)',n:true},{t:'状态'}
     ], records.map(function(r) {
@@ -2513,6 +2625,48 @@ function renderEntryData(key, records) {
     + '<div class="module-info-card"><div class="module-info-card-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 1.5"/></svg><span>数据说明</span></div><div class="module-info-card-desc">数据已保存在本页面（内存），刷新后重置。正式版将持久化存储。</div></div>'
     + '<div class="module-info-card"><div class="module-info-card-title"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 1.5"/></svg><span>模块 ' + titleMap[key] + '</span></div><div class="module-info-card-desc">可以继续添加更多记录，或点右上角「先体验演示数据」查看完整效果。</div></div>'
     + '</div></div>';
+}
+
+// AI 建议视图（用户录入数据后，演示 suggestion-card 形态）
+function renderAIAdvice() {
+  var ed = window.entryData || {};
+  var py = ed.pyrolysis || [];
+  var mat = ed.materials || [];
+  var an = ed.analysis || [];
+  var sink = ed.carbonsink || [];
+  var tr = ed.trading || [];
+  var totalRecords = py.length + mat.length + an.length + sink.length + tr.length;
+  var avgTemp = avgRecords(py, '温度（°C）');
+  var sinkTotal = sumRecords(sink, '减排量（tCO₂e）');
+  var sinkCount = sink.length;
+  // 原料类型占比（取占比最高类型）
+  var matTypeCount = {}, typeTotal = 0;
+  mat.forEach(function(r) { var t = r['原料类型'] || '其他'; matTypeCount[t] = (matTypeCount[t] || 0) + (parseFloat(r['库存量（吨）']) || 0); });
+  Object.keys(matTypeCount).forEach(function(t) { typeTotal += matTypeCount[t]; });
+  var topType = '—', topPct = 0;
+  Object.keys(matTypeCount).forEach(function(t) {
+    var p = typeTotal ? matTypeCount[t] / typeTotal * 100 : 0;
+    if (p > topPct) { topPct = p; topType = t; }
+  });
+  var topPctStr = topPct ? topPct.toFixed(0) + '%' : '—';
+
+  var suggestions = [
+    { c:'green', ic:_ic.fire, title:'热解温度优化建议', desc:'基于 ' + py.length + ' 个批次分析，平均热解温度 ' + avgTemp + '°C，建议对温度偏低/偏高批次微调，提升生物炭产率。', metas:[{l:'平均温度', v: avgTemp + '°C'},{l:'批次数量', v: py.length + ' 个'}] },
+    { c:'cyan', ic:_ic.scale, title:'原料配比优化建议', desc:'当前原料以 ' + topType + ' 为主（占比 ' + topPctStr + '），建议增加高碳原料占比，提升碳汇核算量。', metas:[{l:'主要原料', v: topType},{l:'占比', v: topPctStr}] },
+    { c:'orange', ic:_ic.bolt, title:'碳汇核算建议', desc:'已累计核算 ' + sinkTotal + ' tCO₂e，建议按 CCER 方法学整理数据并提交审核，获取碳资产收益。', metas:[{l:'累计减排', v: sinkTotal + ' tCO₂e'},{l:'核算笔数', v: sinkCount + ' 笔'}] }
+  ];
+  var suggHtml = '<div class="suggestion-list">' + suggestions.map(function(s) {
+    return '<div class="suggestion-card"><div class="suggestion-icon ' + s.c + '">' + s.ic + '</div><div class="suggestion-body"><div class="suggestion-title">' + s.title + '</div><div class="suggestion-desc">' + s.desc + '</div><div class="suggestion-meta">' + s.metas.map(function(m) {
+      return '<span class="suggestion-meta-item">' + m.l + ' <strong>' + m.v + '</strong></span>';
+    }).join('') + '<button class="reactor-btn" style="height:32px;padding:0 16px;font-size:12px" onclick="showToast(\'已采纳建议，正在执行…\')">采纳</button></div></div></div>';
+  }).join('') + '</div>';
+
+  return _statRow([
+    {label:'优化建议', v:'3', u:'条', c:'green', ic:_ic.cpu, s:'基于已录入数据分析'},
+    {label:'覆盖模块', v:'3', u:'个', c:'cyan', ic:_ic.check, s:'原料/热解/核算 3 个维度'},
+    {label:'数据依据', v: totalRecords, u:'条', c:'orange', ic:_ic.trend},
+    {label:'模型置信度', v:'94.2', u:'%', c:'purple', ic:_ic.target}
+  ]) + suggHtml;
 }
 
 function uniqueCount(records, label) {
@@ -2685,17 +2839,10 @@ function getModuleContent(key) {
     })(),
 
     ai: (function(){
-      // 动态前置判断：已录入 ≥3 个热解批次 → 允许启用 AI
-      var batchCount = (window.entryData && window.entryData.pyrolysis) ? window.entryData.pyrolysis.length : 0;
-      if (batchCount >= 3) {
-        return moduleEmpty('green',
-          '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="20" height="20" rx="4"/><circle cx="18" cy="18" r="4"/><path d="M18 4v4M18 28v4M4 18h4M28 18h4"/></svg>',
-          '暂无优化建议',
-          '已积累 ' + batchCount + ' 个批次数据，可启用 AI 分析了',
-          '启用AI分析', plus, '',
-          [{ title: '分析维度', desc: '原料配比优化、热解温度调节、产率提升、能耗降低多维度分析' },
-           { title: '智能推荐', desc: '每周自动生成优化报告，推送可执行的改进建议和预期收益' }],
-          'showToast(\'已基于 ' + batchCount + ' 个批次数据生成优化分析（演示）\')');
+      // 已录入 ≥3 个热解批次 → 直接展示 AI 建议视图（复用演示 suggestion-card 形态）
+      var hasEnough = window.entryData && window.entryData.pyrolysis && window.entryData.pyrolysis.length >= 3;
+      if (hasEnough) {
+        return renderAIAdvice();
       }
       return moduleEmpty('green',
         '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="20" height="20" rx="4"/><circle cx="18" cy="18" r="4"/><path d="M18 4v4M18 28v4M4 18h4M28 18h4"/></svg>',
@@ -2721,7 +2868,8 @@ const ENTRY_FORMS = {
       { label: '原料名称', placeholder: '如：玉米秸秆', required: true },
       { label: '原料类型', type: 'select', options: ['秸秆类', '畜禽粪便', '林业废弃物', '餐厨垃圾', '其他'] },
       { label: '库存量（吨）', placeholder: '如：385', required: true },
-      { label: '供应商', placeholder: '如：绿源农业' }
+      { label: '供应商', placeholder: '如：绿源农业' },
+      { label: '最近入库', placeholder: '如：08-11' }
     ]
   },
   pyrolysis: {
@@ -2730,14 +2878,17 @@ const ENTRY_FORMS = {
       { label: '批次号', placeholder: '如：B0811-03', required: true },
       { label: '原料', placeholder: '如：玉米秸秆', required: true },
       { label: '温度（°C）', placeholder: '如：520', required: true },
-      { label: '开始时间', placeholder: '如：08-11 08:30', required: true }
+      { label: '开始时间', placeholder: '如：08-11 08:30', required: true },
+      { label: '状态', type: 'select', options: ['运行中', '已完成'] },
+      { label: '产率（%）', placeholder: '如：43.2' }
     ]
   },
   pollution: {
     title: '配置监测方案',
     fields: [
-      { label: '监测项目', type: 'select', options: ['尾气（SO₂/NOx/粉尘）', '废水（COD/氨氮）', '噪音', '全面监测'] },
-      { label: '排放限值依据', placeholder: '如：GB 31573-2015' },
+      { label: '监测指标', type: 'select', options: ['SO₂', 'NOx', '粉尘', 'COD', '氨氮', '噪音'] },
+      { label: '实测值', placeholder: '如：28', required: true },
+      { label: '排放限值', placeholder: '如：100', required: true },
       { label: '监测频率', type: 'select', options: ['在线连续', '每 2 小时', '每日', '每周'] },
       { label: '负责人', placeholder: '如：环保专员 张工' }
     ]
@@ -2749,6 +2900,7 @@ const ENTRY_FORMS = {
       { label: '所属批次', type: 'select', dynamic: true, placeholder: '选择已录入的批次' },
       { label: '碳含量（%）', placeholder: '如：76.5', required: true },
       { label: '灰分（%）', placeholder: '如：9.2', required: true },
+      { label: '挥发分（%）', placeholder: '如：15.6' },
       { label: '热值（MJ/kg）', placeholder: '如：27.8', required: true }
     ]
   },
@@ -2867,39 +3019,40 @@ function fill7dDemoData() {
     { n: '餐厨垃圾', t: '餐厨垃圾', q: 45, s: '环卫公司', d: '08-11' }
   ];
   mat.forEach(function(m) {
-    window.entryData.materials.push({ '原料名称': m.n, '原料类型': m.t, '库存量（吨）': String(m.q), '供应商': m.s });
+    window.entryData.materials.push({ '原料名称': m.n, '原料类型': m.t, '库存量（吨）': String(m.q), '供应商': m.s, '最近入库': m.d });
   });
 
   // —— 热解批次（7 天，共 8 个批次）——
   var py = [
-    { b: 'B0805-01', m: '玉米秸秆', t: '520', d: '08-05 08:30' },
-    { b: 'B0805-02', m: '小麦秸秆', t: '515', d: '08-05 16:00' },
-    { b: 'B0806-03', m: '玉米秸秆', t: '525', d: '08-06 08:30' },
-    { b: 'B0807-04', m: '牛粪', t: '480', d: '08-07 09:00' },
-    { b: 'B0808-05', m: '锯木屑', t: '510', d: '08-08 08:30' },
-    { b: 'B0809-06', m: '花生壳', t: '505', d: '08-09 10:00' },
-    { b: 'B0810-07', m: '废弃菌渣', t: '495', d: '08-10 08:30' },
-    { b: 'B0811-08', m: '玉米秸秆', t: '520', d: '08-11 08:30' }
+    { b: 'B0805-01', m: '玉米秸秆', t: '520', d: '08-05 08:30', st: '已完成', r: '39.0' },
+    { b: 'B0805-02', m: '小麦秸秆', t: '515', d: '08-05 16:00', st: '已完成', r: '39.8' },
+    { b: 'B0806-03', m: '玉米秸秆', t: '525', d: '08-06 08:30', st: '已完成', r: '40.5' },
+    { b: 'B0807-04', m: '牛粪', t: '480', d: '08-07 09:00', st: '已完成', r: '41.2' },
+    { b: 'B0808-05', m: '锯木屑', t: '510', d: '08-08 08:30', st: '已完成', r: '42.0' },
+    { b: 'B0809-06', m: '花生壳', t: '505', d: '08-09 10:00', st: '已完成', r: '43.5' },
+    { b: 'B0810-07', m: '废弃菌渣', t: '495', d: '08-10 08:30', st: '运行中', r: '—' },
+    { b: 'B0811-08', m: '玉米秸秆', t: '520', d: '08-11 08:30', st: '运行中', r: '—' }
   ];
   py.forEach(function(p) {
-    window.entryData.pyrolysis.push({ '批次号': p.b, '原料': p.m, '温度（°C）': p.t, '开始时间': p.d });
+    window.entryData.pyrolysis.push({ '批次号': p.b, '原料': p.m, '温度（°C）': p.t, '开始时间': p.d, '状态': p.st, '产率（%）': p.r });
   });
 
-  // —— 污染治理（2 个监测方案）——
-  window.entryData.pollution.push({ '监测项目': '尾气（SO₂/NOx/粉尘）', '排放限值依据': 'GB 31573-2015', '监测频率': '在线连续', '负责人': '环保专员 张工' });
-  window.entryData.pollution.push({ '监测项目': '废水（COD/氨氮）', '排放限值依据': 'GB 8978-1996', '监测频率': '每 2 小时', '负责人': '环保专员 李工' });
+  // —— 污染治理（3 条监测指标实测记录）——
+  window.entryData.pollution.push({ '监测指标': 'SO₂', '实测值': '28', '排放限值': '100', '监测频率': '在线连续', '负责人': '环保专员 张工' });
+  window.entryData.pollution.push({ '监测指标': 'COD', '实测值': '58', '排放限值': '100', '监测频率': '每 2 小时', '负责人': '环保专员 李工' });
+  window.entryData.pollution.push({ '监测指标': '噪音', '实测值': '62', '排放限值': '85', '监测频率': '每日', '负责人': '环保专员 张工' });
 
   // —— 质检报告（对应批次，碳含量 ≥70 达标 / <70 非达标）——
   var an = [
-    { s: 'QR-0805-01', b: 'B0805-01', c: '76.5', a: '9.2', h: '27.8' },
-    { s: 'QR-0805-02', b: 'B0805-02', c: '74.8', a: '10.4', h: '26.9' },
-    { s: 'QR-0806-03', b: 'B0806-03', c: '78.2', a: '8.5', h: '28.5' },
-    { s: 'QR-0807-04', b: 'B0807-04', c: '68.5', a: '13.1', h: '23.2' },
-    { s: 'QR-0808-05', b: 'B0808-05', c: '75.9', a: '9.8', h: '27.1' },
-    { s: 'QR-0811-08', b: 'B0811-08', c: '77.4', a: '8.9', h: '28.0' }
+    { s: 'QR-0805-01', b: 'B0805-01', c: '76.5', a: '9.2', h: '27.8', v: '15.2' },
+    { s: 'QR-0805-02', b: 'B0805-02', c: '74.8', a: '10.4', h: '26.9', v: '16.1' },
+    { s: 'QR-0806-03', b: 'B0806-03', c: '78.2', a: '8.5', h: '28.5', v: '15.0' },
+    { s: 'QR-0807-04', b: 'B0807-04', c: '68.5', a: '13.1', h: '23.2', v: '18.5' },
+    { s: 'QR-0808-05', b: 'B0808-05', c: '75.9', a: '9.8', h: '27.1', v: '16.4' },
+    { s: 'QR-0811-08', b: 'B0811-08', c: '77.4', a: '8.9', h: '28.0', v: '15.6' }
   ];
   an.forEach(function(x) {
-    window.entryData.analysis.push({ '样品编号': x.s, '所属批次': x.b, '碳含量（%）': x.c, '灰分（%）': x.a, '热值（MJ/kg）': x.h });
+    window.entryData.analysis.push({ '样品编号': x.s, '所属批次': x.b, '碳含量（%）': x.c, '灰分（%）': x.a, '挥发分（%）': x.v, '热值（MJ/kg）': x.h });
   });
 
   // —— 碳汇核算（7 天，逐日减排，累计 ≈ 355）——
@@ -2925,7 +3078,7 @@ function fill7dDemoData() {
 
   // 刷新界面
   refreshOverviewKPI();
-  showToast('已填入 7 天示例数据（8/5–8/11）：原料 7 条 · 批次 8 个 · 质检 6 份 · 核算 7 笔 · 交易 5 笔');
+  showToast('已填入 7 天示例数据（8/5–8/11）：原料 7 条 · 批次 8 个 · 监测 3 项 · 质检 6 份 · 核算 7 笔 · 交易 5 笔');
   // 若在总览则刷新；否则留在当前模块并重渲染
   var dynamicEl = document.getElementById('module-dynamic');
   var currentKey = document.querySelector('.sidebar-nav-item.active') ? document.querySelector('.sidebar-nav-item.active').dataset.module : 'overview';
