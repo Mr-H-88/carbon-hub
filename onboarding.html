@@ -1400,12 +1400,18 @@ svg { display: block; }
           <div class="welcome-banner-title">欢迎使用数智碳路！完成以下 4 步即可开始使用</div>
           <div class="welcome-banner-desc">本系统已根据您填写的企业信息预置了基础模板，建议按顺序完成初始化。</div>
         </div>
+        <div style="display:flex;align-items:center;gap:12px">
+        <button class="welcome-banner-btn" onclick="fill7dDemoData()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h8v12l-4-3-4 3V2z"/></svg>
+          <span>一键填入 7 天示例数据</span>
+        </button>
         <button class="welcome-banner-btn" onclick="jumpToModule('materials', '已跳转到原料管理，请录入第一批原料')">
           <span>开始录入原料</span>
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 8h10M7 4l4 4-4 4"/>
           </svg>
         </button>
+        </div>
       </div>
 
       <!-- Onboarding Guide: Full-Width Horizontal Step Bar (most prominent, directly below welcome banner) -->
@@ -2567,6 +2573,92 @@ function submitEntry(key) {
   refreshOverviewKPI();
 }
 /* ========== End Entry Modal ========== */
+
+/* ========== 一键填入 7 天示例数据 ========== */
+function fill7dDemoData() {
+  // 重置为全新数据
+  window.entryData = { materials: [], pyrolysis: [], pollution: [], analysis: [], carbonsink: [], trading: [] };
+
+  // —— 原料（7 天，每天入一批）——
+  var mat = [
+    { n: '玉米秸秆', t: '秸秆类', q: 385, s: '绿源农业', d: '08-05' },
+    { n: '小麦秸秆', t: '秸秆类', q: 220, s: '绿源农业', d: '08-06' },
+    { n: '牛粪', t: '畜禽粪便', q: 180, s: '牧原牧业', d: '08-07' },
+    { n: '锯木屑', t: '林业废弃物', q: 168, s: '林达木材', d: '08-08' },
+    { n: '花生壳', t: '秸秆类', q: 152, s: '金穗粮油', d: '08-09' },
+    { n: '废弃菌渣', t: '其他', q: 98, s: '食用菌基地', d: '08-10' },
+    { n: '餐厨垃圾', t: '餐厨垃圾', q: 45, s: '环卫公司', d: '08-11' }
+  ];
+  mat.forEach(function(m) {
+    window.entryData.materials.push({ '原料名称': m.n, '原料类型': m.t, '库存量（吨）': String(m.q), '供应商': m.s });
+  });
+
+  // —— 热解批次（7 天，共 8 个批次）——
+  var py = [
+    { b: 'B0805-01', m: '玉米秸秆', t: '520', d: '08-05 08:30' },
+    { b: 'B0805-02', m: '小麦秸秆', t: '515', d: '08-05 16:00' },
+    { b: 'B0806-03', m: '玉米秸秆', t: '525', d: '08-06 08:30' },
+    { b: 'B0807-04', m: '牛粪', t: '480', d: '08-07 09:00' },
+    { b: 'B0808-05', m: '锯木屑', t: '510', d: '08-08 08:30' },
+    { b: 'B0809-06', m: '花生壳', t: '505', d: '08-09 10:00' },
+    { b: 'B0810-07', m: '废弃菌渣', t: '495', d: '08-10 08:30' },
+    { b: 'B0811-08', m: '玉米秸秆', t: '520', d: '08-11 08:30' }
+  ];
+  py.forEach(function(p) {
+    window.entryData.pyrolysis.push({ '批次号': p.b, '原料': p.m, '温度（°C）': p.t, '开始时间': p.d });
+  });
+
+  // —— 污染治理（2 个监测方案）——
+  window.entryData.pollution.push({ '监测项目': '尾气（SO₂/NOx/粉尘）', '排放限值依据': 'GB 31573-2015', '监测频率': '在线连续', '负责人': '环保专员 张工' });
+  window.entryData.pollution.push({ '监测项目': '废水（COD/氨氮）', '排放限值依据': 'GB 8978-1996', '监测频率': '每 2 小时', '负责人': '环保专员 李工' });
+
+  // —— 质检报告（对应批次，碳含量 ≥70 达标 / <70 非达标）——
+  var an = [
+    { s: 'QR-0805-01', b: 'B0805-01', c: '76.5', a: '9.2', h: '27.8' },
+    { s: 'QR-0805-02', b: 'B0805-02', c: '74.8', a: '10.4', h: '26.9' },
+    { s: 'QR-0806-03', b: 'B0806-03', c: '78.2', a: '8.5', h: '28.5' },
+    { s: 'QR-0807-04', b: 'B0807-04', c: '68.5', a: '13.1', h: '23.2' },
+    { s: 'QR-0808-05', b: 'B0808-05', c: '75.9', a: '9.8', h: '27.1' },
+    { s: 'QR-0811-08', b: 'B0811-08', c: '77.4', a: '8.9', h: '28.0' }
+  ];
+  an.forEach(function(x) {
+    window.entryData.analysis.push({ '样品编号': x.s, '所属批次': x.b, '碳含量（%）': x.c, '灰分（%）': x.a, '热值（MJ/kg）': x.h });
+  });
+
+  // —— 碳汇核算（7 天，逐日减排，累计 ≈ 355）——
+  var sink = [
+    { p: '8/05', v: '42' }, { p: '8/06', v: '38' }, { p: '8/07', v: '55' },
+    { p: '8/08', v: '48' }, { p: '8/09', v: '62' }, { p: '8/10', v: '58' }, { p: '8/11', v: '52' }
+  ];
+  sink.forEach(function(s) {
+    window.entryData.carbonsink.push({ '核算周期': s.p, '减排量（tCO₂e）': s.v, '核算方法': 'IPCC 方法学', '核算说明': '基于当日热解批次产炭量核算' });
+  });
+
+  // —— 碳交易（7 天 5 笔）——
+  var tr = [
+    { t: '08-05 14:20', ty: '卖出', q: '80', p: '62' },
+    { t: '08-07 10:15', ty: '买入', q: '100', p: '61' },
+    { t: '08-08 11:30', ty: '卖出', q: '60', p: '63' },
+    { t: '08-10 09:45', ty: '卖出', q: '120', p: '64' },
+    { t: '08-11 15:10', ty: '卖出', q: '50', p: '65' }
+  ];
+  tr.forEach(function(x) {
+    window.entryData.trading.push({ '交易时间': x.t, '交易类型': x.ty, '数量（tCO₂e）': x.q, '单价（元/t）': x.p });
+  });
+
+  // 刷新界面
+  refreshOverviewKPI();
+  showToast('已填入 7 天示例数据（8/5–8/11）：原料 7 条 · 批次 8 个 · 质检 6 份 · 核算 7 笔 · 交易 5 笔');
+  // 若在总览则刷新；否则留在当前模块并重渲染
+  var dynamicEl = document.getElementById('module-dynamic');
+  var currentKey = document.querySelector('.sidebar-nav-item.active') ? document.querySelector('.sidebar-nav-item.active').dataset.module : 'overview';
+  if (currentKey === 'overview') {
+    switchModule('overview');
+  } else if (dynamicEl) {
+    dynamicEl.innerHTML = getModuleContent(currentKey);
+  }
+}
+/* ========== End 一键填入 7 天示例数据 ========== */
 
 /* ========== Demo Content Helpers ========== */
 const _ic = {
