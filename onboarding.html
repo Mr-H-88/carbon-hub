@@ -1927,11 +1927,16 @@ document.addEventListener('click', function(e) {
     item.parentElement.querySelectorAll('.time-switcher-item').forEach(i => i.classList.remove('active'));
     item.classList.add('active');
     var range = item.getAttribute('data-range');
-    if (demoMode && range) {
+    if (range) {
       currentOverviewRange = range;
       var overviewEl = document.getElementById('module-overview');
       if (overviewEl && overviewEl.style.display !== 'none') {
-        overviewEl.innerHTML = getDemoOverview(range);
+        if (demoMode) {
+          overviewEl.innerHTML = getDemoOverview(range);
+        } else {
+          // 非演示模式：按 range 重绘用户总览（趋势图联动）
+          renderUserOverview();
+        }
       }
     }
   }
@@ -2114,11 +2119,15 @@ function renderUserOverview() {
       + '<div class="kpi-sub" style="font-size:11px;color:var(--c-text-3)">' + k.sub + '</div></div>';
   }).join('') + '</div>';
 
-  // —— 减排趋势图（用核算数据）——
+  // —— 减排趋势图（用核算数据，支持 今日/7天/30天 切换）——
   var sinkRecords = ed.carbonsink || [];
+  var range = currentOverviewRange || '7d';
   var chartHtml = '';
   if (sinkRecords.length) {
-    var bars = sinkRecords.slice(0, 12).map(function(r) {
+    // 按时间范围过滤核算记录（today 取最新 1 条 / 7d 取最新 7 条 / 30d 取最新 30 条）
+    var limit = range === 'today' ? 1 : (range === '30d' ? 30 : 7);
+    var filtered = sinkRecords.slice(-limit);
+    var bars = filtered.map(function(r) {
       return { v: parseFloat(r['减排量（tCO₂e）']) || 0, l: r['核算周期'] || '—' };
     });
     var maxB = 1;
@@ -2134,9 +2143,14 @@ function renderUserOverview() {
       var lx = ((i + 0.5) / bars.length * 100).toFixed(2);
       return '<span class="combo-label" style="left:' + lx + '%">' + b.l + '</span>';
     }).join('') + '</div>';
-    chartHtml = '<div class="main-row"><div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">减排趋势</div><div class="card-sub">碳汇核算数据（tCO₂e）</div></div></div>'
+    var tsHtml = '<div class="time-switcher">'
+      + '<div class="time-switcher-item' + (range === 'today' ? ' active' : '') + '" data-range="today">今日</div>'
+      + '<div class="time-switcher-item' + (range === '7d' ? ' active' : '') + '" data-range="7d">7天</div>'
+      + '<div class="time-switcher-item' + (range === '30d' ? ' active' : '') + '" data-range="30d">30天</div>'
+      + '</div>';
+    chartHtml = '<div class="main-row"><div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">减排趋势</div><div class="card-sub">碳汇核算数据（tCO₂e）</div></div>' + tsHtml + '</div>'
       + '<div class="chart-area"><div class="combo-chart">' + comboBarHtml + comboLineHtml + comboLabelsHtml + '</div>'
-      + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>减排量（tCO₂e）</span><span><span class="chart-legend-dot" style="background:var(--c-cyan);border-radius:50%"></span>累计趋势</span><span>累计 ' + cum + ' tCO₂e</span></div></div></div>';
+      + '<div class="chart-legend"><span><span class="chart-legend-dot" style="background:var(--c-primary)"></span>减排量（tCO₂e）</span><span><span class="chart-legend-dot" style="background:var(--c-cyan);border-radius:50%"></span>累计趋势</span><span>' + (range==='today'?'今日':'') + (range==='7d'?'7 天':range==='30d'?'30 天':'') + '累计 ' + cum + ' tCO₂e</span></div></div></div>';
   } else {
     chartHtml = '<div class="main-row"><div class="chart-card"><div class="card-head"><div class="card-head-left"><div class="card-title">减排趋势</div><div class="card-sub">碳汇核算数据</div></div></div><div class="chart-empty"><div class="chart-empty-icon">' + _ic.chart + '</div><div class="chart-empty-text">暂无减排数据</div><div class="chart-empty-hint">在【碳汇核算】录入数据后自动生成</div></div></div>';
   }
